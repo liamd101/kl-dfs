@@ -16,14 +16,6 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - name: Install Rust
-      run: |
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-        source $HOME/.cargo/env
-        rustup default stable
-        rustup update
-        rustup component add clippy rustfmt
-
     - name: Check formatting
       run: cargo fmt -- --check
 
