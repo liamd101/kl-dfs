@@ -4,6 +4,7 @@ struct Block {
 }
 
 struct DataNode {
+    id: usize,
     blocks: HashMap<usize, Block>,
 }
 
