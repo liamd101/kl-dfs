@@ -7,6 +7,7 @@ use tokio::net::{TcpListener, TcpStream};
 pub struct DataNodeServer {
     server_addr: String,
     storage: Storage,
+    peer_addrs: Vec<String>,
 }
 
 impl DataNodeServer {
@@ -15,6 +16,7 @@ impl DataNodeServer {
         DataNodeServer {
             server_addr,
             storage: Storage::new(),
+            peer_addrs: vec![],
         }
     }
 
@@ -28,13 +30,25 @@ impl DataNodeServer {
         stream.write_all(b"hello world").await?;
         Ok(stream)
     }
+
+    pub async fn add_block(&mut self) {
+        todo!()
+    }
+
+    pub fn add_peer(&mut self, _peer_addr: String) -> Result<(), Box<dyn Error>> {
+        todo!()
+    }
+
+    pub async fn send_heartbeat(&self) -> Result<(), Box<dyn Error>> {
+        todo!()
+    }
 }
 
 pub mod storage {
     use crate::block::Block;
     use std::path::PathBuf;
 
-    // TODO: Move to config file
+    // TODO: Move to config file or somewhere else
     const DATA_DIR: &str = "./data";
 
     pub struct Storage {
@@ -70,7 +84,7 @@ pub mod storage {
             block
         }
 
-        pub fn read_block(&self, id: usize) -> Option<&Block> {
+        pub fn get_block(&self, id: usize) -> Option<&Block> {
             match self.blocks.get(id) {
                 Some(block) => Some(block),
                 None => None,
