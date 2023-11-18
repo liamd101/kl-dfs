@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use crate::block::Block;
 use std::path::PathBuf;
 
@@ -26,8 +27,7 @@ impl DataNode {
             Some(data) => data,
             None => vec![],
         };
-        let block = Block::new(id, data);
-        block
+        Block::new(id, data)
     }
 
     fn read_block(&self, id: usize) -> Option<&Block> {
