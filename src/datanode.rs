@@ -3,20 +3,23 @@ use std::error::Error;
 use storage::Storage;
 use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
+use tokio::sync::Mutex;
 
-pub struct DataNodeServer {
+pub struct DataNodeServer<'a> {
     server_addr: String,
     storage: Storage,
-    peer_addrs: Vec<String>,
+    peer_addrs: Vec<&'a str>,
+    namenode_connection: Mutex<Option<TcpStream>>,
 }
 
-impl DataNodeServer {
+impl<'a> DataNodeServer<'a> {
     pub fn new(port: String) -> Self {
-        let server_addr = format!("127.0.0.1:{port}");
+        let server_addr: String = format!("127.0.0.1:{}", port);
         DataNodeServer {
             server_addr,
             storage: Storage::new(),
             peer_addrs: vec![],
+            namenode_connection: Mutex::new(None),
         }
     }
 
@@ -39,8 +42,19 @@ impl DataNodeServer {
         todo!()
     }
 
+    async fn connect_to_namenode(&self, namenode_addr: &String) -> Result<(), Box<dyn Error>> {
+        let stream = TcpStream::connect(namenode_addr).await?;
+        let mut lock = self.namenode_connection.lock().await;
+        *lock = Some(stream);
+        Ok(())
+    }
+
     pub async fn send_heartbeat(&self) -> Result<(), Box<dyn Error>> {
-        todo!()
+        let mut lock = self.namenode_connection.lock().await;
+        if let Some(stream) = &mut *lock {
+            stream.write_all(b"heartbeat").await?;
+        }
+        Ok(())
     }
 }
 
