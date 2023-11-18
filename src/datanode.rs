@@ -2,12 +2,20 @@
 use crate::block::Block;
 use std::path::PathBuf;
 
+// TODO: Move to config file
 const DATA_DIR: &str = "./data";
 
 struct DataNode {
+    /// ID of datanode stored in namenode
     id: usize,
+
+    /// Blocks stored in datanode
     blocks: Vec<Block>,
+
+    /// Directory where blocks are stored
     data_dir: PathBuf,
+
+    /// Port to listen on
     port: u16,
 }
 
@@ -31,7 +39,6 @@ impl DataNode {
     }
 
     fn read_block(&self, id: usize) -> Option<&Block> {
-        let block = self.blocks.get(id);
-        block
+        self.blocks.get(id)
     }
 }
