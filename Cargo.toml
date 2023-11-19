@@ -5,15 +5,15 @@ edition = "2021"
 
 [[bin]]
 name="cis1905"
-path="src/client.rs"
+path="src/main_client.rs"
 
 [[bin]]
 name="namenode"
-path="src/namenode.rs"
+path="src/main_namenode.rs"
 
 [[bin]]
 name="datanode"
-path="src/datanode.rs"
+path="src/main_datanode.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
