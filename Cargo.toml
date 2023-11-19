@@ -3,7 +3,21 @@ name = "cis1905"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name="cis1905"
+path="src/client.rs"
+
+[[bin]]
+name="namenode"
+path="src/namenode.rs"
+
+[[bin]]
+name="datanode"
+path="src/datanode.rs"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 tokio = "1.33.0"
+prost = "0.12"
+prost-types = "0.12"

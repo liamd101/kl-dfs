@@ -1,3 +1,39 @@
 syntax "proto3"
 
 package network_comms;
+
+message GenericReply() {
+    required bool is_success = 1;
+}
+
+message ClientInfo() {
+    required int64 uid = 1;
+}
+
+message FileInfo {
+    required string file_path = 1;
+    required int64 file_size = 2;
+    // add more file info
+}
+
+message BlockInfo {
+    required int64 block_id = 1;
+    required int64 datanode_id = 2;
+    // Add more block info
+}
+
+
+message FileRequest {
+    required ClientInfo client = 1;
+    required FileInfo file_info = 2;
+}
+
+message BlockRequest {
+    required ClientInfo client = 1;
+    required BlockInfo block_info = 2;
+}
+
+message BlockData {
+    required bytes data = 1;
+    // add checksum? and actual data?
+}
