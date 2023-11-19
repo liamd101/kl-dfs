@@ -54,7 +54,7 @@ impl<'a> DataNodeServer<'a> {
     }
 
     pub async fn send_heartbeat_loop(&self) {
-        let heartbeat_interval = Duration::from_secs(2);
+        let heartbeat_interval = Duration::from_secs(5);
         let mut interval = tokio::time::interval(heartbeat_interval);
 
         loop {
