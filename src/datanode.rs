@@ -6,7 +6,7 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::Mutex;
 
 pub struct DataNodeServer<'a> {
-    server_addr: String,
+    datanode_addr: String,
     storage: Storage,
     peer_addrs: Vec<&'a str>,
     namenode_connection: Mutex<Option<TcpStream>>,
@@ -14,9 +14,9 @@ pub struct DataNodeServer<'a> {
 
 impl<'a> DataNodeServer<'a> {
     pub fn new(port: String) -> Self {
-        let server_addr: String = format!("127.0.0.1:{}", port);
+        let datanode_addr: String = format!("127.0.0.1:{}", port);
         DataNodeServer {
-            server_addr,
+            datanode_addr,
             storage: Storage::new(),
             peer_addrs: vec![],
             namenode_connection: Mutex::new(None),
@@ -24,12 +24,12 @@ impl<'a> DataNodeServer<'a> {
     }
 
     pub async fn create_listener(&self) -> Result<TcpListener, Box<dyn Error>> {
-        let listener = TcpListener::bind(&self.server_addr).await?;
+        let listener = TcpListener::bind(&self.datanode_addr).await?;
         Ok(listener)
     }
 
     pub async fn bind_port(&self) -> Result<TcpStream, Box<dyn Error>> {
-        let mut stream = TcpStream::connect(&self.server_addr).await?;
+        let mut stream = TcpStream::connect(&self.datanode_addr).await?;
         stream.write_all(b"hello world").await?;
         Ok(stream)
     }
