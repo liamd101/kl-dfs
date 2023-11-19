@@ -99,10 +99,7 @@ pub mod storage {
         }
 
         pub fn get_block(&self, id: usize) -> Option<&Block> {
-            match self.blocks.get(id) {
-                Some(block) => Some(block),
-                None => None,
-            }
+            self.blocks.get(id)
         }
     }
 }
