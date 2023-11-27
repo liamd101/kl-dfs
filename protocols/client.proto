@@ -2,3 +2,126 @@ syntax = "proto3";
 
 package network_comms;
 
+// import "protocols/basic.proto";
+
+service ClientProtocols {
+    rpc GetSystemStatus(SystemInfoRequest) returns (SystemInfoResponse);
+    rpc CreateFile(CreateFileRequest) returns (CreateFileResponse);
+    rpc UpdateFile(UpdateFileRequest) returns (UpdateFileResponse);
+    rpc DeleteFile(DeleteFileRequest) returns (DeleteFileResponse);
+    rpc ReadFile(ReadFileRequest) returns (ReadFileResponse);
+}
+
+// request for node statuses
+message SystemInfoRequest {
+    ClientInfo client = 1;
+}
+
+message CreateFileRequest {
+    ClientInfo client = 1;
+    FileInfo file_info = 2;
+}
+
+message UpdateFileRequest {
+    ClientInfo client = 1;
+    FileInfo file_info = 2;
+}
+
+message DeleteFileRequest {
+    ClientInfo client = 1;
+    FileInfo file_info = 2;
+}
+
+message ReadFileRequest {
+    ClientInfo client = 1;
+    FileInfo file_info = 2;
+}
+
+message SystemInfoResponse {
+    repeated NodeStatus nodes = 1;
+}
+
+message CreateFileResponse {
+    GenericReply response = 1;
+
+}
+
+message UpdateFileResponse {
+    GenericReply response = 1;
+}
+
+message DeleteFileResponse {
+    GenericReply response = 1;
+}
+
+message ReadFileResponse {
+    bytes file_content = 1;
+    // add other file-related information
+}
+
+
+
+
+// for read/write requests for blocks on datanodes?
+message BlockWriteRequest {
+    ClientInfo client = 1;
+    BlockInfo block_info = 2;
+    bytes block_data = 3;
+}
+
+message BlockWriteResponse {
+    bool success = 1;
+}
+
+message BlockReadRequest {
+    ClientInfo client = 1;
+    BlockInfo block_info = 2;
+}
+
+message BlockReadResponse {
+    bytes block_data = 1;
+}
+
+
+
+// copied over from basic.proto
+message GenericReply {
+    bool is_success = 1;
+}
+
+message ClientInfo {
+    int64 uid = 1;
+}
+
+message FileInfo {
+    string file_path = 1;
+    int64 file_size = 2;
+    // add more file info
+}
+
+message BlockInfo {
+    int64 block_id = 1;
+    int64 datanode_id = 2;
+    // Add more block info
+}
+
+
+message FileRequest {
+    ClientInfo client = 1;
+    FileInfo file_info = 2;
+}
+
+message BlockRequest {
+     ClientInfo client = 1;
+     BlockInfo block_info = 2;
+}
+
+message BlockData {
+    bytes data = 1;
+    // add checksum? and actual data?
+}
+
+message NodeStatus {
+    string node_id = 1;
+    bool is_online = 2;
+}

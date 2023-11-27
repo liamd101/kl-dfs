@@ -22,6 +22,7 @@ struct Args {
 enum Command {
     Datanode { port: String },
     Namenode {},
+    NamenodeDev {},
 }
 
 async fn run_datanode_server(port: String) {
@@ -56,7 +57,13 @@ async fn main() {
             });
 
             println!("Datanode running on port {}", port);
-        }
+        },
         Command::Namenode {} => todo!(),
+        Command::NamenodeDev {} => {
+            // hard coded ports for developing initial client-namenode comms
+            // let c_port = port 5000
+            // let n_port = port 4000
+            
+        }
     }
 }
