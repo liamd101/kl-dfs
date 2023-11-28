@@ -27,6 +27,7 @@ struct Args {
 enum Command {
     Datanode { port: String },
     Namenode {},
+    Client {},
     NamenodeDev {},
 }
 
@@ -63,13 +64,29 @@ async fn main() {
 
             println!("Datanode running on port {}", port);
         }
-        Command::Namenode {} => todo!(),
+        Command::Namenode {} => {
+            let nameserver = NameNodeServer::new("4000".to_string());
+            let _ = nameserver.run_nameserver().await;
+        },
+        Command::Client {} => {
+            let client = Client::new(1, "4000".to_string(), "4200".to_string());
+            match client.run_client().await {
+                Ok(_) => println!("Client ran successfully"),
+                Err(err) => println!("Error: {}", err),
+            }
+
+        }
         Command::NamenodeDev {} => {
             // hard coded ports for developing initial client-namenode comms
             let nameserver = NameNodeServer::new("4000".to_string());
-            let _client = Client::new(1, "4000".to_string(), "4200".to_string());
-
+            let client = Client::new(1, "4000".to_string(), "4200".to_string());
+            println!("created servers");
             let _ = nameserver.run_nameserver().await;
+            println!("ran nameserver");
+            match client.run_client().await {
+                Ok(_) => println!("Client ran successfully"),
+                Err(err) => println!("Error: {}", err),
+            }
         }
     }
 }
