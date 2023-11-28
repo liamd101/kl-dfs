@@ -67,9 +67,9 @@ async fn main() {
         Command::NamenodeDev {} => {
             // hard coded ports for developing initial client-namenode comms
             let nameserver = NameNodeServer::new("4000".to_string());
-            let client = Client::new(1, "4000".to_string(), "4200".to_string());
+            let _client = Client::new(1, "4000".to_string(), "4200".to_string());
 
-            nameserver.run_nameserver().await;
+            let _ = nameserver.run_nameserver().await;
 
             
         }

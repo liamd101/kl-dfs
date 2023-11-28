@@ -1,7 +1,9 @@
 
-use std::collections::HashMap;
+use std::{collections::HashMap, net::SocketAddr, str::FromStr, vec};
+use tonic::Response;
 #[allow(unused_imports)]
 use tonic::transport::Server;
+use crate::{proto::NodeStatus, datanode};
 // use network_comms::client_protocols_server::{ClientProtocols, ClientProtocolsServer};
 // use network_comms::{
 //     system_info_request::SystemInfoRequest,
@@ -30,6 +32,7 @@ use crate::proto::{
     ClientInfo
 };
 
+#[derive(Clone)]
 struct FileMetadata {
     file_id: u64, // Hash(filename || owner)
     file_name: String,
@@ -37,12 +40,17 @@ struct FileMetadata {
     owner: i64,
 }
 
-struct DataNode;
+#[derive(Clone)]
+struct DataNode {
+    node_id: i64,
+    is_online: bool, // detemined by heartbeat messages
+}
 
+#[derive(Clone)]
 pub struct NameNodeServer {
     datanodes: Vec<DataNode>,
     num_datanodes: i64,
-    blocks: HashMap<u64, Vec<DataNode>>,
+    blocks: HashMap<u64, Vec<DataNode>>, 
     metadata: HashMap<u64, FileMetadata>, // from file id : file metadata
     addr: String,
 }
@@ -58,7 +66,7 @@ impl NameNodeServer {
         }
     }
 
-    pub async fn run_nameserver(&self) -> Result<SystemInfoResponse, tonic::Status> {
+    pub async fn run_nameserver(&self) -> Result<(), Box<dyn std::error::Error>> {
         // let addr = match self.addr.clone().parse() {
         //     Ok(parsed_addr) => {
 
@@ -68,32 +76,64 @@ impl NameNodeServer {
         //         None
         //     }
         // };
+        let socket = match SocketAddr::from_str(&self.addr) {
+            Ok(socket_addr) => socket_addr,
+            Err(err) => {
+                eprintln!("Error parsing socket address: {}", err);
+                return Err(err.into()); 
+            }
+        };
 
-        let client_protocols_service = ClientProtocolsService::default();
-        
+        let client_protocols_service = NameNodeService { server: self.clone() };
+
+        Server::builder()
+            .add_service(ClientProtocolsServer::new(client_protocols_service))
+            .serve(socket)
+            .await?;
+
         println!("Server listening on {}", self.addr);
 
-        // Server::builder()
-        //     .add_service(ClientProtocolsServer::new(client_protocols_service))
-        //     .serve(addr)
-        //     .await?;
-
-        // Ok(())
-        unimplemented!()
+        Ok(())
     }
 }
 
-#[derive(Debug, Default)]
-struct ClientProtocolsService;
+
+
+// #[derive(Debug, Default)]
+struct NameNodeService {
+    server: NameNodeServer,
+}
 
 #[tonic::async_trait]
-impl ClientProtocols for ClientProtocolsService {
+impl ClientProtocols for NameNodeService {
     async fn get_system_status(
         &self,
         request: tonic::Request<SystemInfoRequest>,
     ) -> Result<tonic::Response<SystemInfoResponse>, tonic::Status> {
+        let system_info_request = request.into_inner();
+
+        if let Some(client_info) = system_info_request.client {
+            println!("Received SystemInfoRequest from client: {}", client_info.uid);
+        } else {
+            eprintln!("Received SystemInfoRequest with no ClientInfo");
+        }
         
-        unimplemented!()
+
+        let namenode_status = NodeStatus {
+            node_id: 0,
+            is_online: true,
+        };
+        let datanode_status = self.server.datanodes.iter().map(|datanode| NodeStatus {
+            node_id: datanode.node_id,
+            is_online: datanode.is_online
+        }).collect();
+        let response = SystemInfoResponse {
+            namenode: Some(namenode_status),
+            nodes: datanode_status,
+            num_datanodes: self.server.num_datanodes,
+        };
+
+        Ok(Response::new(response))
     }
 
     async fn create_file(

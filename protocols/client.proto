@@ -38,7 +38,9 @@ message ReadFileRequest {
 }
 
 message SystemInfoResponse {
-    repeated NodeStatus nodes = 1;
+    NodeStatus namenode = 1;
+    repeated NodeStatus nodes = 2;
+    int64 num_datanodes = 3;
 }
 
 message CreateFileResponse {
@@ -122,6 +124,6 @@ message BlockData {
 }
 
 message NodeStatus {
-    string node_id = 1;
+    int64 node_id = 1;
     bool is_online = 2;
 }
