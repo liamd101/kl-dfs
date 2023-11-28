@@ -1,9 +1,8 @@
-
+use crate::{datanode, proto::NodeStatus};
 use std::{collections::HashMap, net::SocketAddr, str::FromStr, vec};
-use tonic::Response;
 #[allow(unused_imports)]
 use tonic::transport::Server;
-use crate::{proto::NodeStatus, datanode};
+use tonic::Response;
 // use network_comms::client_protocols_server::{ClientProtocols, ClientProtocolsServer};
 // use network_comms::{
 //     system_info_request::SystemInfoRequest,
@@ -24,12 +23,9 @@ use crate::{proto::NodeStatus, datanode};
 #[allow(unused_imports)]
 use crate::proto::{
     client_protocols_server::{ClientProtocols, ClientProtocolsServer},
-    SystemInfoRequest, SystemInfoResponse,
-    CreateFileRequest, CreateFileResponse,
-    UpdateFileRequest, UpdateFileResponse,
-    DeleteFileRequest, DeleteFileResponse,
-    ReadFileRequest, ReadFileResponse,
-    ClientInfo
+    ClientInfo, CreateFileRequest, CreateFileResponse, DeleteFileRequest, DeleteFileResponse,
+    ReadFileRequest, ReadFileResponse, SystemInfoRequest, SystemInfoResponse, UpdateFileRequest,
+    UpdateFileResponse,
 };
 
 #[derive(Clone)]
@@ -50,7 +46,7 @@ struct DataNode {
 pub struct NameNodeServer {
     datanodes: Vec<DataNode>,
     num_datanodes: i64,
-    blocks: HashMap<u64, Vec<DataNode>>, 
+    blocks: HashMap<u64, Vec<DataNode>>,
     metadata: HashMap<u64, FileMetadata>, // from file id : file metadata
     addr: String,
 }
@@ -80,11 +76,13 @@ impl NameNodeServer {
             Ok(socket_addr) => socket_addr,
             Err(err) => {
                 eprintln!("Error parsing socket address: {}", err);
-                return Err(err.into()); 
+                return Err(err.into());
             }
         };
 
-        let client_protocols_service = NameNodeService { server: self.clone() };
+        let client_protocols_service = NameNodeService {
+            server: self.clone(),
+        };
 
         Server::builder()
             .add_service(ClientProtocolsServer::new(client_protocols_service))
@@ -96,8 +94,6 @@ impl NameNodeServer {
         Ok(())
     }
 }
-
-
 
 // #[derive(Debug, Default)]
 struct NameNodeService {
@@ -113,20 +109,27 @@ impl ClientProtocols for NameNodeService {
         let system_info_request = request.into_inner();
 
         if let Some(client_info) = system_info_request.client {
-            println!("Received SystemInfoRequest from client: {}", client_info.uid);
+            println!(
+                "Received SystemInfoRequest from client: {}",
+                client_info.uid
+            );
         } else {
             eprintln!("Received SystemInfoRequest with no ClientInfo");
         }
-        
 
         let namenode_status = NodeStatus {
             node_id: 0,
             is_online: true,
         };
-        let datanode_status = self.server.datanodes.iter().map(|datanode| NodeStatus {
-            node_id: datanode.node_id,
-            is_online: datanode.is_online
-        }).collect();
+        let datanode_status = self
+            .server
+            .datanodes
+            .iter()
+            .map(|datanode| NodeStatus {
+                node_id: datanode.node_id,
+                is_online: datanode.is_online,
+            })
+            .collect();
         let response = SystemInfoResponse {
             namenode: Some(namenode_status),
             nodes: datanode_status,
@@ -164,5 +167,4 @@ impl ClientProtocols for NameNodeService {
     ) -> std::result::Result<tonic::Response<ReadFileResponse>, tonic::Status> {
         unimplemented!()
     }
-
 }

@@ -5,7 +5,6 @@
 //     Ok(())
 // }
 
-
 // fn main() -> Result<(), Box<dyn std::error::Error>> {
 //     tonic_build::compile_protos("protocols/basic.proto")?;
 //     tonic_build::compile_protos("protocols/datanode.proto")?;
@@ -19,9 +18,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let proto_files = &["protocols/datanode.proto", "protocols/client.proto"];
     tonic_build::configure()
         .build_server(true)
-        .compile(
-            proto_files,
-            &["protocols"],
-        )?;
+        .compile(proto_files, &["protocols"])?;
     Ok(())
 }

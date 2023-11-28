@@ -62,7 +62,7 @@ async fn main() {
             });
 
             println!("Datanode running on port {}", port);
-        },
+        }
         Command::Namenode {} => todo!(),
         Command::NamenodeDev {} => {
             // hard coded ports for developing initial client-namenode comms
@@ -70,8 +70,6 @@ async fn main() {
             let _client = Client::new(1, "4000".to_string(), "4200".to_string());
 
             let _ = nameserver.run_nameserver().await;
-
-            
         }
     }
 }

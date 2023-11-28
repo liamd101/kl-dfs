@@ -2,17 +2,13 @@
 // use tokio::io::{AsyncReadExt, AsyncWriteExt};
 // use prost::Message;
 #[allow(unused_imports)]
-use tonic::{transport::Channel, Request, Response, Status};
-#[allow(unused_imports)]
 use crate::proto::{
-    client_protocols_client::ClientProtocolsClient,
-    SystemInfoRequest, SystemInfoResponse,
-    CreateFileRequest, CreateFileResponse,
-    UpdateFileRequest, UpdateFileResponse,
-    DeleteFileRequest, DeleteFileResponse,
-    ReadFileRequest, ReadFileResponse,
-    ClientInfo
+    client_protocols_client::ClientProtocolsClient, ClientInfo, CreateFileRequest,
+    CreateFileResponse, DeleteFileRequest, DeleteFileResponse, ReadFileRequest, ReadFileResponse,
+    SystemInfoRequest, SystemInfoResponse, UpdateFileRequest, UpdateFileResponse,
 };
+#[allow(unused_imports)]
+use tonic::{transport::Channel, Request, Response, Status};
 // use network_comms::{
 //     client_protocols_client::ClientProtocolsClient,
 //     system_info_request::SystemInfoRequest,
@@ -22,7 +18,6 @@ use crate::proto::{
 //     read_file_request::ReadFileRequest,
 //     SystemInfoResponse,
 // };
-
 
 pub struct Client {
     user_id: i64,
@@ -41,9 +36,12 @@ impl Client {
 
     // sends a system_info_request to the namenode in self.namenode_address
     pub async fn get_system_status(&self) -> Result<SystemInfoResponse, tonic::Status> {
-        let channel = tonic::transport::Channel::from_shared(format!("http://{}", self.namenode_addr))
-            .map_err(|e| tonic::Status::internal(format!("Failed to create channel: {:?}", e)))?;
-        
+        let channel =
+            tonic::transport::Channel::from_shared(format!("http://{}", self.namenode_addr))
+                .map_err(|e| {
+                    tonic::Status::internal(format!("Failed to create channel: {:?}", e))
+                })?;
+
         // let client = ClientProtocolsClient::new(channel);
 
         // let request = tonic::Request::new(SystemInfoRequest {
@@ -55,20 +53,19 @@ impl Client {
         // Ok(response.into_inner())
         unimplemented!()
     }
- 
- 
+
     // pub async fn ls(&self, path: impl Into<String>) -> Result<Vec<String>> {
-        
+
     // }
 
     // // send a write file request to namenode server
     // pub async fn upload(&self, src: &str, dst: impl Into<String>) -> Result<()> {
-        
+
     // }
 
     // // send a read file request to namenode server
     // pub async fn download(&self, src: &str, dst: &str) -> Result<()> {
-        
+
     // }
 
     pub async fn run_client(&self) {
@@ -82,10 +79,9 @@ impl Client {
         //     }
         // }
         // let listener = TcpListener::bind(&self.client_addr).await.unwrap();
-        
+
         loop {
             // matches CLI and calls get_systeminfo, ls, upload, download, etc.
         }
     }
-
 }
