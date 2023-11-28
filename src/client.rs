@@ -1,26 +1,36 @@
-use tokio::net::{TcpListener, TcpStream};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-
+// use tokio::net::{TcpListener, TcpStream};
+// use tokio::io::{AsyncReadExt, AsyncWriteExt};
+// use prost::Message;
+#[allow(unused_imports)]
 use tonic::{transport::Channel, Request, Response, Status};
-
-use prost::Message;
-use network_comms::{
+#[allow(unused_imports)]
+use crate::proto::{
     client_protocols_client::ClientProtocolsClient,
-    system_info_request::SystemInfoRequest,
-    create_file_request::CreateFileRequest,
-    update_file_request::UpdateFileRequest,
-    delete_file_request::DeleteFileRequest,
-    read_file_request::ReadFileRequest,
+    SystemInfoRequest, SystemInfoResponse,
+    CreateFileRequest, CreateFileResponse,
+    UpdateFileRequest, UpdateFileResponse,
+    DeleteFileRequest, DeleteFileResponse,
+    ReadFileRequest, ReadFileResponse,
+    ClientInfo
 };
+// use network_comms::{
+//     client_protocols_client::ClientProtocolsClient,
+//     system_info_request::SystemInfoRequest,
+//     create_file_request::CreateFileRequest,
+//     update_file_request::UpdateFileRequest,
+//     delete_file_request::DeleteFileRequest,
+//     read_file_request::ReadFileRequest,
+//     SystemInfoResponse,
+// };
 
 
-pub struct Client<'a> {
+pub struct Client {
     user_id: i64,
-    namenode_addr: &'a str, // rpc address: IP & port as a string
-    client_addr: &'a str,
+    namenode_addr: String, // rpc address: IP & port as a string
+    client_addr: String,
 }
 
-impl<'a> Client<'a> {
+impl Client {
     pub fn new(id: i64, name_port: String, client_port: String) -> Self {
         Client {
             user_id: id,
@@ -34,31 +44,32 @@ impl<'a> Client<'a> {
         let channel = tonic::transport::Channel::from_shared(format!("http://{}", self.namenode_addr))
             .map_err(|e| tonic::Status::internal(format!("Failed to create channel: {:?}", e)))?;
         
-        let client = ClientProtocolsClient::new(channel);
+        // let client = ClientProtocolsClient::new(channel);
 
-        let request = tonic::Request::new(SystemInfoRequest {
-            client: Some(ClientInfo { uid: self.user_id }),
-        });
+        // let request = tonic::Request::new(SystemInfoRequest {
+        //     client: Some(ClientInfo { uid: self.user_id }),
+        // });
 
-        let response = client.get_system_status(request).await?;
+        // let response = client.get_system_status(request).await?;
 
-        Ok(response.into_inner())
+        // Ok(response.into_inner())
+        unimplemented!()
     }
  
  
-    pub async fn ls(&self, path: impl Into<String>) -> Result<Vec<String>> {
+    // pub async fn ls(&self, path: impl Into<String>) -> Result<Vec<String>> {
         
-    }
+    // }
 
-    // send a write file request to namenode server
-    pub async fn upload(&self, src: &str, dst: impl Into<String>) -> Result<()> {
+    // // send a write file request to namenode server
+    // pub async fn upload(&self, src: &str, dst: impl Into<String>) -> Result<()> {
         
-    }
+    // }
 
-    // send a read file request to namenode server
-    pub async fn download(&self, src: &str, dst: &str) -> Result<()> {
+    // // send a read file request to namenode server
+    // pub async fn download(&self, src: &str, dst: &str) -> Result<()> {
         
-    }
+    // }
 
     pub async fn run_client(&self) {
         // match TcpListener::bind(&self.client_addr).await.unwrap() {
@@ -70,7 +81,7 @@ impl<'a> Client<'a> {
         //         Err(err)
         //     }
         // }
-        let listener = TcpListener::bind(&self.client_addr).await.unwrap();
+        // let listener = TcpListener::bind(&self.client_addr).await.unwrap();
         
         loop {
             // matches CLI and calls get_systeminfo, ls, upload, download, etc.

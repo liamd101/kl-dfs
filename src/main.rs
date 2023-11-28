@@ -7,6 +7,11 @@ use datanode::DataNodeServer;
 use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 
+pub mod client;
+use client::Client;
+pub mod namenode;
+use namenode::NameNodeServer;
+
 pub mod proto {
     tonic::include_proto!("network_comms");
 }
@@ -61,8 +66,11 @@ async fn main() {
         Command::Namenode {} => todo!(),
         Command::NamenodeDev {} => {
             // hard coded ports for developing initial client-namenode comms
-            // let c_port = port 5000
-            // let n_port = port 4000
+            let nameserver = NameNodeServer::new("4000".to_string());
+            let client = Client::new(1, "4000".to_string(), "4200".to_string());
+
+            nameserver.run_nameserver().await;
+
             
         }
     }
