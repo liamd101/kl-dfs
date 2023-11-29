@@ -2,8 +2,8 @@
 use chrono::Utc;
 use prost::Message;
 use std::error::Error;
+use std::net::{SocketAddr, IpAddr, Ipv4Addr};
 use storage::Storage;
-use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::Mutex;
 use tokio::time::Duration;
@@ -11,86 +11,34 @@ use tokio::time::Duration;
 use crate::proto::HeartbeatMessage;
 
 /// Server that runs a datanode
-pub struct DataNodeServer<'a> {
+pub struct DataNodeServer {
     /// TCP address of the datanode
-    datanode_addr: String,
+    datanode_addr: SocketAddr,
 
     /// Block storage of the datanode
     storage: Storage,
 
-    /// Addresses of other datanodes
-    peer_addrs: Vec<&'a str>,
-
     /// Connection to the namenode
-    namenode_connection: Mutex<Option<TcpStream>>,
+    namenode_addr: SocketAddr,
 }
 
-impl<'a> DataNodeServer<'a> {
-    pub fn new(port: String) -> Self {
-        let datanode_addr: String = format!("127.0.0.1:{}", port);
+impl DataNodeServer {
+    pub fn new(port: u16) -> Self {
+        let datanode_addr: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
+        let namenode_addr: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 3000);
         DataNodeServer {
             datanode_addr,
             storage: Storage::new(),
-            peer_addrs: vec![],
-            namenode_connection: Mutex::new(None),
+            namenode_addr
         }
     }
 
-    pub async fn create_listener(&self) -> Result<TcpListener, Box<dyn Error>> {
-        let listener = TcpListener::bind(&self.datanode_addr).await?;
-        Ok(listener)
-    }
-
-    pub async fn bind_port(&self) -> Result<TcpStream, Box<dyn Error>> {
-        let stream = TcpStream::connect(&self.datanode_addr).await?;
-        Ok(stream)
-    }
-
-    pub async fn connect_to_namenode(&self, namenode_addr: &str) -> Result<(), Box<dyn Error>> {
-        let stream = TcpStream::connect(namenode_addr).await?;
-        let mut lock = self.namenode_connection.lock().await;
-        *lock = Some(stream);
-        Ok(())
-    }
-
-    pub async fn send_heartbeat_loop(&self) {
-        let heartbeat_interval = Duration::from_secs(5);
-        let mut interval = tokio::time::interval(heartbeat_interval);
-
-        loop {
-            interval.tick().await;
-            match self.send_heartbeat().await {
-                Ok(_) => println!("Sent heartbeat"),
-                Err(e) => println!("Error sending heartbeat: {}", e),
-            }
-        }
+    pub async fn run_dataserver(&self) -> Result<(), Box<dyn std::error::Error>> {
+        todo!()
     }
 
     pub async fn send_heartbeat(&self) -> Result<(), Box<dyn Error>> {
-        let mut lock = self.namenode_connection.lock().await;
-
-        if let Some(ref mut stream) = *lock {
-            let now = Utc::now();
-            let heartbeat = HeartbeatMessage {
-                node_id: self.datanode_addr.clone(),
-                timestamp: now.timestamp(),
-            };
-
-            let mut buf = Vec::new();
-            heartbeat.encode(&mut buf)?;
-            stream.write_all(&buf).await?;
-        } else {
-            return Err("Connection to namenode is not established".into());
-        }
         Ok(())
-    }
-
-    pub async fn add_block(&mut self) {
-        todo!()
-    }
-
-    pub fn add_peer(&mut self, _peer_addr: String) -> Result<(), Box<dyn Error>> {
-        todo!()
     }
 }
 

@@ -25,30 +25,9 @@ struct Args {
 
 #[derive(Subcommand, Debug)]
 enum Command {
-    Datanode { port: String },
+    Datanode { port: u16 },
     Namenode {},
     Client {},
-}
-
-async fn run_datanode_server(port: String) {
-    let _namenode = TcpListener::bind("127.0.0.1:8080").await;
-
-    let datanode = DataNodeServer::new(port);
-    match datanode.connect_to_namenode("127.0.0.1:8080").await {
-        Ok(_) => (),
-        Err(e) => {
-            println!("Error connecting to namenode: {}", e);
-            return;
-        }
-    }
-
-    let datanode_server = Arc::new(Mutex::new(datanode));
-
-    let datanode_server_clone = datanode_server.clone();
-    tokio::spawn(async move {
-        let locked_server = datanode_server_clone.lock().await;
-        locked_server.send_heartbeat_loop().await;
-    });
 }
 
 #[tokio::main]
@@ -56,12 +35,8 @@ async fn main() {
     let args = Args::parse();
     match args.command {
         Command::Datanode { port } => {
-            let nport = port.clone();
-            tokio::spawn(async move {
-                run_datanode_server(nport.clone()).await;
-            });
-
-            println!("Datanode running on port {}", port);
+            let dataserver = DataNodeServer::new(port);
+            let _ = dataserver.run_dataserver().await;
         }
         Command::Namenode {} => {
             let nameserver = NameNodeServer::new("4000".to_string());
