@@ -1,0 +1,34 @@
+Date : 2023-11-28 22:25:17
+Directory : /Users/kristineyip/Documents/CIS_1905/demo_test/src
+Total : 8 files,  468 codes, 63 comments, 90 blanks, all 621 lines
+
+Languages
++----------+------------+------------+------------+------------+------------+
+| language | files      | code       | comment    | blank      | total      |
++----------+------------+------------+------------+------------+------------+
+| Rust     |          8 |        468 |         63 |         90 |        621 |
++----------+------------+------------+------------+------------+------------+
+
+Directories
++--------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                     | files      | code       | comment    | blank      | total      |
++--------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                        |          8 |        468 |         63 |         90 |        621 |
+| . (Files)                                                                |          4 |        316 |         60 |         63 |        439 |
+| namenode                                                                 |          4 |        152 |          3 |         27 |        182 |
++--------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++--------------------------------------------------------------------------+----------+------------+------------+------------+------------+
+| filename                                                                 | language | code       | comment    | blank      | total      |
++--------------------------------------------------------------------------+----------+------------+------------+------------+------------+
+| /Users/kristineyip/Documents/CIS_1905/demo_test/src/block.rs             | Rust     |         11 |          0 |          2 |         13 |
+| /Users/kristineyip/Documents/CIS_1905/demo_test/src/client.rs            | Rust     |        129 |         51 |         24 |        204 |
+| /Users/kristineyip/Documents/CIS_1905/demo_test/src/datanode.rs          | Rust     |        109 |          9 |         25 |        143 |
+| /Users/kristineyip/Documents/CIS_1905/demo_test/src/main.rs              | Rust     |         67 |          0 |         12 |         79 |
+| /Users/kristineyip/Documents/CIS_1905/demo_test/src/namenode/hashing.rs  | Rust     |          0 |          0 |          1 |          1 |
+| /Users/kristineyip/Documents/CIS_1905/demo_test/src/namenode/lru.rs      | Rust     |          0 |          0 |          1 |          1 |
+| /Users/kristineyip/Documents/CIS_1905/demo_test/src/namenode/mod.rs      | Rust     |          2 |          0 |          2 |          4 |
+| /Users/kristineyip/Documents/CIS_1905/demo_test/src/namenode/namenode.rs | Rust     |        150 |          3 |         23 |        176 |
+| Total                                                                    |          |        468 |         63 |         90 |        621 |
++--------------------------------------------------------------------------+----------+------------+------------+------------+------------+

@@ -45,7 +45,6 @@ message SystemInfoResponse {
 
 message CreateFileResponse {
     GenericReply response = 1;
-
 }
 
 message UpdateFileResponse {
