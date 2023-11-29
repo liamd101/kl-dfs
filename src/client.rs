@@ -21,7 +21,7 @@ pub struct Client {
     user_id: i64,
     namenode_addr: String, // rpc address: IP & port as a string
     client_addr: String,
-    client_info :ClientInfo
+    client_info: ClientInfo,
 }
 
 impl Client {
@@ -30,7 +30,7 @@ impl Client {
             user_id: id,
             namenode_addr: format!("127.0.0.1:{}", name_port),
             client_addr: format!("127.0.0.1:{}", client_port),
-            client_info: ClientInfo { uid: id }
+            client_info: ClientInfo { uid: id },
         }
     }
 
@@ -104,11 +104,11 @@ impl Client {
                         if let Some(file_path) = iter.next() {
                             let file = FileInfo {
                                 file_path: file_path.to_string(), // so far just flat file system, no directories; this is name
-                                file_size: 4096
+                                file_size: 4096,
                             };
                             let request = Request::new(CreateFileRequest {
                                 client: Some(self.client_info.clone()),
-                                file_info: Some(file)
+                                file_info: Some(file),
                             });
                             let response = client.create_file(request).await?;
                             println!("Response: {:?}", response);
@@ -118,11 +118,11 @@ impl Client {
                         if let Some(file_path) = iter.next() {
                             let file = FileInfo {
                                 file_path: file_path.to_string(), // so far just flat file system, no directories; this is name
-                                file_size: 4096
+                                file_size: 4096,
                             };
                             let request = Request::new(UpdateFileRequest {
                                 client: Some(self.client_info.clone()),
-                                file_info: Some(file)
+                                file_info: Some(file),
                             });
                             let response = client.update_file(request).await?;
                             println!("Response: {:?}", response);
@@ -132,11 +132,11 @@ impl Client {
                         if let Some(file_path) = iter.next() {
                             let file = FileInfo {
                                 file_path: file_path.to_string(), // so far just flat file system, no directories; this is name
-                                file_size: 4096
+                                file_size: 4096,
                             };
                             let request = Request::new(DeleteFileRequest {
                                 client: Some(self.client_info.clone()),
-                                file_info: Some(file)
+                                file_info: Some(file),
                             });
                             let response = client.delete_file(request).await?;
                             println!("Response: {:?}", response);
@@ -146,11 +146,11 @@ impl Client {
                         if let Some(file_path) = iter.next() {
                             let file = FileInfo {
                                 file_path: file_path.to_string(), // so far just flat file system, no directories; this is name
-                                file_size: 4096
+                                file_size: 4096,
                             };
                             let request = Request::new(ReadFileRequest {
                                 client: Some(self.client_info.clone()),
-                                file_info: Some(file)
+                                file_info: Some(file),
                             });
                             let response = client.read_file(request).await?;
                             println!("Response: {:?}", response);

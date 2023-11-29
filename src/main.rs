@@ -1,12 +1,8 @@
-use std::sync::Arc;
-
 use clap::{Parser, Subcommand};
 pub mod block;
+
 pub mod datanode;
 use datanode::DataNodeServer;
-use tokio::net::TcpListener;
-use tokio::sync::Mutex;
-
 pub mod client;
 use client::Client;
 pub mod namenode;
@@ -36,12 +32,17 @@ async fn main() {
     match args.command {
         Command::Datanode { port } => {
             let dataserver = DataNodeServer::new(port);
-            let _ = dataserver.run_dataserver().await;
+            match dataserver.run_dataserver().await {
+                Ok(_) => println!("DataNode ran successfully"),
+                Err(err) => println!("Error: {}", err),
+            }
         }
+
         Command::Namenode {} => {
-            let nameserver = NameNodeServer::new("4000".to_string());
+            let nameserver = NameNodeServer::new("3000".to_string());
             let _ = nameserver.run_nameserver().await;
         }
+
         Command::Client {} => {
             let client = Client::new(1, "4000".to_string(), "4200".to_string());
             match client.run_client().await {

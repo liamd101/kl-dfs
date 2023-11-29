@@ -3,12 +3,17 @@ use crate::proto::GenericReply;
 use crate::proto::{
     client_protocols_server::{ClientProtocols, ClientProtocolsServer},
     ClientInfo, CreateFileRequest, CreateFileResponse, DeleteFileRequest, DeleteFileResponse,
-    NodeStatus, ReadFileRequest, ReadFileResponse, SystemInfoRequest, SystemInfoResponse,
-    UpdateFileRequest, UpdateFileResponse, FileInfo
+    FileInfo, NodeStatus, ReadFileRequest, ReadFileResponse, SystemInfoRequest, SystemInfoResponse,
+    UpdateFileRequest, UpdateFileResponse,
 };
-#[allow(unused_imports)]
-use std::{collections::{HashMap, hash_map::DefaultHasher}, net::SocketAddr, str::FromStr, hash::{Hash, Hasher}};
 use prost_types::compiler::code_generator_response::File;
+#[allow(unused_imports)]
+use std::{
+    collections::{hash_map::DefaultHasher, HashMap},
+    hash::{Hash, Hasher},
+    net::SocketAddr,
+    str::FromStr,
+};
 #[allow(unused_imports)]
 use tonic::transport::Server;
 use tonic::Response;
@@ -31,7 +36,7 @@ struct DataNode {
 pub struct NameNodeServer {
     datanodes: Vec<DataNode>,
     num_datanodes: i64,
-    blocks: HashMap<u64, Vec<DataNode>>, 
+    blocks: HashMap<u64, Vec<DataNode>>,
     metadata: HashMap<u64, FileMetadata>, // from file id : file metadata
     addr: String,
 }
@@ -90,8 +95,6 @@ impl NameNodeServer {
         hasher.finish()
     }
 }
-
-
 
 // #[derive(Debug, Default)]
 struct NameNodeService {
@@ -156,7 +159,9 @@ impl ClientProtocols for NameNodeService {
         //     }
         // }
 
-        let response = CreateFileResponse { response: Some(GenericReply { is_success: true }) };
+        let response = CreateFileResponse {
+            response: Some(GenericReply { is_success: true }),
+        };
         Ok(Response::new(response))
     }
 
