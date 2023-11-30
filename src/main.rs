@@ -44,10 +44,10 @@ async fn main() {
         }
 
         Command::Client {} => {
-            let client = Client::new(1, "4000".to_string(), "4200".to_string());
+            let client = Client::new(1, 3000, 3030);
             match client.run_client().await {
                 Ok(_) => println!("Client ran successfully"),
-                Err(err) => println!("Error: {}", err),
+                Err(err) => println!("Client Error: {}", err),
             }
         }
     }
