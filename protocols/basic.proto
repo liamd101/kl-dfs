@@ -39,6 +39,6 @@ message BlockData {
 }
 
 message NodeStatus {
-    int64 node_id = 1;
+    string node_address = 1;
     bool is_online = 2;
 }
