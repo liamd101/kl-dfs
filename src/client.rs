@@ -135,24 +135,6 @@ impl Client {
                     }
                 };
             }
-
-            // Create a gRPC request based on user input
-            // let request = tonic::Request::new(YourRequestType {
-            //     // Set fields based on user input
-            //     // For example, if your request has a string field 'command'
-            //     command: input.to_string(),
-            // });
-
-            // // Make an RPC call
-            // match client.your_rpc_method(request).await {
-            //     Ok(response) => {
-            //         // Process the response
-            //         println!("Response: {:?}", response);
-            //     }
-            //     Err(e) => {
-            //         eprintln!("Error: {:?}", e);
-            //     }
-            // }
         }
 
         Ok(())

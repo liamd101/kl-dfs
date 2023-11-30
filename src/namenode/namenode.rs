@@ -112,15 +112,22 @@ impl ClientProtocols for NameNodeService {
         request: tonic::Request<CreateFileRequest>,
     ) -> Result<tonic::Response<CreateFileResponse>, tonic::Status> {
         let create_request = request.into_inner();
+        let mut datanode_address = String::new();
 
-        // if let Some(FileInfo { file_path, file_size }) = create_request.file_info {
-        //     if let Some(ClientInfo { uid }) = create_request.client {
-        //         let file_id = NameNodeServer::get_file_id(&file_path, uid);
-        //         self.server.create_file(file_id, &file_path, file_size, uid);
-        //     }
-        // }
+        if let Some(FileInfo { file_path, file_size }) = create_request.file_info {
+            if let Some(ClientInfo { uid }) = create_request.client {
+                match self.records.add_file(&file_path, uid).await {
+                    Ok(address) => datanode_address = address,
+                    Err(err) => {
+                        println!("{}", err);
+                        return Err(tonic::Status::internal("Failed to add file (no datanodes running)"));
+                    }
+                }
+            }
+        }
 
         let response = CreateFileResponse {
+            datanode_address: datanode_address,
             response: Some(GenericReply { is_success: true }),
         };
         Ok(Response::new(response))
@@ -137,6 +144,7 @@ impl ClientProtocols for NameNodeService {
         &self,
         request: tonic::Request<DeleteFileRequest>,
     ) -> std::result::Result<tonic::Response<DeleteFileResponse>, tonic::Status> {
+        
         unimplemented!()
     }
 
@@ -144,6 +152,7 @@ impl ClientProtocols for NameNodeService {
         &self,
         request: tonic::Request<ReadFileRequest>,
     ) -> std::result::Result<tonic::Response<ReadFileResponse>, tonic::Status> {
+
         unimplemented!()
     }
 }

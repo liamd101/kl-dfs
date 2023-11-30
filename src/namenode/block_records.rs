@@ -19,6 +19,8 @@ impl BlockRecords {
     }
 
     // replaces block if it already exists
+    // based on the block_id (which is a hash), determines which datanode(s) to store on
+    // returns the IP address of a datanode to write to
     pub fn add_block_to_records(&mut self, block_id: u64) -> Result<(), &str> {
         if let Some(_existing_metadata) = self.block_mappings.get_mut(&block_id) {
             Err("Block Already exists")
@@ -44,11 +46,11 @@ impl BlockRecords {
         self.block_mappings.get(block_id)
     }
 
-    pub fn add_block_replicate(&mut self, block_id: &u64, datanode_addr: String) -> Result<&BlockMetadata, &str> {
+    pub fn add_block_replicate(&mut self, block_id: &u64, datanode_addr: String) -> Result<(), &str> {
         match self.block_mappings.get_mut(block_id) {
             Some(metadata) => {
-                metadata.datanodes.insert(datanode_addr);
-                Ok(metadata)
+                metadata.datanodes.insert(datanode_addr.clone());
+                Ok(())
             },
             None => Err("Block Not in Records"),
         }
