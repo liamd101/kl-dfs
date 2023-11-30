@@ -1,8 +1,8 @@
+use crate::namenode::block_records::BlockRecords;
+use crate::{block, datanode};
 use std::collections::{HashMap, HashSet};
 use std::sync::{atomic, Mutex, RwLock};
 use std::time::{Duration, Instant};
-use crate::{datanode, block};
-use crate::namenode::block_records::BlockRecords;
 // for atomic counter for id generation
 // use std::sync::atomic::{AtomicUsize, Ordering};
 use std::collections::hash_map::DefaultHasher;
@@ -18,7 +18,7 @@ pub struct DataNodeInfo {
 // basically recordkeeper/bookkeeper
 pub struct NameNodeRecords {
     datanodes: Mutex<HashMap<u64, DataNodeInfo>>, // datanode id : datanode info
-    datanode_ids: Mutex<HashMap<String, u64>>,// datanode ip string, datanode id
+    datanode_ids: Mutex<HashMap<String, u64>>,    // datanode ip string, datanode id
     block_records: RwLock<BlockRecords>, // maps blocks to block metadata (including which datanodes a block is on)
     // block_id_counter: AtomicUsize,
     default_block_size: u64,
@@ -33,7 +33,7 @@ impl NameNodeRecords {
             datanode_ids: Mutex::new(HashMap::new()),
             block_records: RwLock::new(BlockRecords::new()),
             // block_id_counter: AtomicUsize::new(0),
-            default_block_size: 4096
+            default_block_size: 4096,
         }
     }
 
@@ -75,29 +75,29 @@ impl NameNodeRecords {
                     Some(node) => {
                         match block_records.add_block_replicate(&file_id, node.addr.clone()) {
                             Ok(()) => Ok(node.addr),
-                            Err(_err) => Err("Block Not in Records")
+                            Err(_err) => Err("Block Not in Records"),
                         }
-                    },
+                    }
                     None => {
                         println!("Datanode not found for file id: {}", file_id);
                         Err("No Datanodes Running")
                     }
                 }
-            },
-            Err(_err) => Err("Block Already exists")
+            }
+            Err(_err) => Err("Block Already exists"),
         }
     }
 
     // Removes a file block from block_records
-    pub async fn remove_file(&self, file_path: &str, owner: i64) -> Result<(), &str> {
+    pub async fn remove_file(&self, file_path: &str, owner: i64) -> Result<Vec<String>, &str> {
         let file_id = Self::get_file_id(file_path, owner);
         let mut block_records = self.block_records.write().unwrap();
         match block_records.remove_block_from_records(&file_id) {
-            Ok(()) => Ok(()),
-            Err(_err) => Err("Block Already exists")
+            Ok(ip_addresses) => Ok(ip_addresses),
+            Err(_err) => Err("Block Already exists"),
         }
     }
-    
+
     // returns a vector of datanode addresses that the file lives on
     pub async fn get_file_address(&self, file_path: &str, owner: i64) -> Result<Vec<String>, &str> {
         let file_id = Self::get_file_id(file_path, owner);
@@ -105,8 +105,7 @@ impl NameNodeRecords {
 
         match block_records.get_block_datanodes(&file_id) {
             Ok(datanodes) => Ok(datanodes),
-            Err(_err) => Err("Block Not in Records")
+            Err(_err) => Err("Block Not in Records"),
         }
     }
-
 }

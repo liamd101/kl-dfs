@@ -1,3 +1,4 @@
+use crate::namenode::records::{DataNodeInfo, NameNodeRecords};
 use crate::proto::GenericReply;
 #[allow(unused_imports)]
 use crate::proto::{
@@ -6,11 +7,10 @@ use crate::proto::{
     FileInfo, NodeStatus, ReadFileRequest, ReadFileResponse, SystemInfoRequest, SystemInfoResponse,
     UpdateFileRequest, UpdateFileResponse,
 };
+use std::sync::Arc;
 use std::{net::SocketAddr, str::FromStr};
 use tonic::transport::Server;
 use tonic::Response;
-use crate::namenode::records::{NameNodeRecords, DataNodeInfo};
-use std::sync::Arc;
 
 pub struct NameNodeServer {
     // datanodes: Vec<DataNode>,
@@ -18,16 +18,15 @@ pub struct NameNodeServer {
     // blocks: HashMap<u64, Vec<DataNode>>,
     // metadata: HashMap<u64, FileMetadata>, // from file id : file metadata
     // addr: String,
-
     address: String,
-    records: Arc<NameNodeRecords>
+    records: Arc<NameNodeRecords>,
 }
 
 impl NameNodeServer {
     pub fn new(port: String) -> Self {
         Self {
             address: format!("127.0.0.1:{}", port),
-            records: Arc::new(NameNodeRecords::new())
+            records: Arc::new(NameNodeRecords::new()),
         }
     }
 
@@ -39,10 +38,8 @@ impl NameNodeServer {
                 return Err(err.into());
             }
         };
-        let client_protocols_service = NameNodeService::new(
-            self.address.clone(), 
-            Arc::clone(&self.records)
-        );
+        let client_protocols_service =
+            NameNodeService::new(self.address.clone(), Arc::clone(&self.records));
         println!("Server listening on {}", self.address);
 
         Server::builder()
@@ -52,21 +49,17 @@ impl NameNodeServer {
 
         Ok(())
     }
-
 }
 
 // #[derive(Debug, Default)]
 struct NameNodeService {
     address: String,
-    records: Arc<NameNodeRecords>
+    records: Arc<NameNodeRecords>,
 }
 
 impl NameNodeService {
     fn new(address: String, records: Arc<NameNodeRecords>) -> Self {
-        Self { 
-            address,
-            records
-        }
+        Self { address, records }
     }
 }
 
@@ -92,10 +85,13 @@ impl ClientProtocols for NameNodeService {
             is_online: true,
         };
         let nodes = self.records.get_datanode_statuses().await;
-        let nodes_statuses = nodes.iter().map(|node| NodeStatus {
-            node_address: node.addr.clone(),
-            is_online: node.alive
-        }).collect();
+        let nodes_statuses = nodes
+            .iter()
+            .map(|node| NodeStatus {
+                node_address: node.addr.clone(),
+                is_online: node.alive,
+            })
+            .collect();
 
         let response = SystemInfoResponse {
             namenode: Some(namenode_status),
@@ -111,16 +107,22 @@ impl ClientProtocols for NameNodeService {
         &self,
         request: tonic::Request<CreateFileRequest>,
     ) -> Result<tonic::Response<CreateFileResponse>, tonic::Status> {
+        println!("Received CreateFileRequest");
         let create_request = request.into_inner();
         let mut datanode_address = String::new();
 
-        if let Some(FileInfo { file_path, file_size }) = create_request.file_info {
+        if let Some(FileInfo {
+            file_path,
+            file_size,
+        }) = create_request.file_info {
             if let Some(ClientInfo { uid }) = create_request.client {
                 match self.records.add_file(&file_path, uid).await {
                     Ok(address) => datanode_address = address,
                     Err(err) => {
                         println!("{}", err);
-                        return Err(tonic::Status::internal("Failed to add file (no datanodes running)"));
+                        return Err(tonic::Status::internal(
+                            "Failed to add file (no datanodes running)",
+                        ));
                     }
                 }
             }
@@ -137,6 +139,27 @@ impl ClientProtocols for NameNodeService {
         &self,
         request: tonic::Request<UpdateFileRequest>,
     ) -> std::result::Result<tonic::Response<UpdateFileResponse>, tonic::Status> {
+        // println!("Received UpdateFileRequest");
+        // let update_request = request.into_inner();
+        // let mut datanode_address = String::new();
+
+        // if let Some(FileInfo {
+        //     file_path,
+        //     file_size,
+        // }) = update_request.file_info {
+        //     if let Some(ClientInfo { uid }) = update_request.client {
+        //         match self.records.update_file(&file_path, uid).await {
+        //             Ok(address) => datanode_address = address,
+        //             Err(err) => {
+        //                 println!("{}", err);
+        //                 return Err(tonic::Status::internal(
+        //                     "Failed to add file (no datanodes running)",
+        //                 ));
+        //             }
+        //         }
+        //     }
+        // }
+
         unimplemented!()
     }
 
@@ -144,7 +167,28 @@ impl ClientProtocols for NameNodeService {
         &self,
         request: tonic::Request<DeleteFileRequest>,
     ) -> std::result::Result<tonic::Response<DeleteFileResponse>, tonic::Status> {
-        
+        println!("Received DeleteFileRequest");
+        let delete_request = request.into_inner();
+
+        if let Some(FileInfo {
+            file_path,
+            file_size,
+        }) = delete_request.file_info {
+            if let Some(ClientInfo { uid }) = delete_request.client {
+                match self.records.remove_file(&file_path, uid).await {
+                    Ok(address) => {
+                        
+                    },
+                    Err(err) => {
+                        println!("{}", err);
+                        return Err(tonic::Status::internal(
+                            "Failed to add file (no datanodes running)",
+                        ));
+                    }
+                }
+            }
+        }
+
         unimplemented!()
     }
 
@@ -152,7 +196,6 @@ impl ClientProtocols for NameNodeService {
         &self,
         request: tonic::Request<ReadFileRequest>,
     ) -> std::result::Result<tonic::Response<ReadFileResponse>, tonic::Status> {
-
         unimplemented!()
     }
 }

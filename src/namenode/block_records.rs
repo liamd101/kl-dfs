@@ -2,13 +2,12 @@
 use std::collections::{HashMap, HashSet};
 
 pub struct BlockMetadata {
-    block_id: u64, // id of block/file
-    datanodes: HashSet<String> // set of datanode IP addresses that block lives on
+    block_id: u64,              // id of block/file
+    datanodes: HashSet<String>, // set of datanode IP addresses that block lives on
 }
 
-
 pub struct BlockRecords {
-    block_mappings: HashMap<u64, BlockMetadata>
+    block_mappings: HashMap<u64, BlockMetadata>,
 }
 
 impl BlockRecords {
@@ -26,16 +25,17 @@ impl BlockRecords {
             Err("Block Already exists")
         } else {
             let metadata = BlockMetadata {
-                block_id, datanodes: HashSet::new()
+                block_id,
+                datanodes: HashSet::new(),
             };
             self.block_mappings.insert(block_id, metadata);
             Ok(())
         }
     }
 
-    pub fn remove_block_from_records(&mut self, block_id: &u64) -> Result<(), &str> {
-        if let Some(existing_metadata) = self.block_mappings.remove(&block_id) {
-            Ok(())
+    pub fn remove_block_from_records(&mut self, block_id: &u64) -> Result<Vec<String>, &str> {
+        if let Some(block_metadata) = self.block_mappings.remove(&block_id) {
+            Ok(block_metadata.datanodes.into_iter().collect())
         } else {
             Err("Block does not exist")
         }
@@ -46,12 +46,16 @@ impl BlockRecords {
         self.block_mappings.get(block_id)
     }
 
-    pub fn add_block_replicate(&mut self, block_id: &u64, datanode_addr: String) -> Result<(), &str> {
+    pub fn add_block_replicate(
+        &mut self,
+        block_id: &u64,
+        datanode_addr: String,
+    ) -> Result<(), &str> {
         match self.block_mappings.get_mut(block_id) {
             Some(metadata) => {
                 metadata.datanodes.insert(datanode_addr.clone());
                 Ok(())
-            },
+            }
             None => Err("Block Not in Records"),
         }
     }
@@ -63,5 +67,4 @@ impl BlockRecords {
             None => Err("Block Not in Records"),
         }
     }
-
 }

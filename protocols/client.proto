@@ -54,14 +54,13 @@ message UpdateFileResponse {
 
 message DeleteFileResponse {
     GenericReply response = 1;
+    repeated string stored_datanode_addr = 2;
 }
 
 message ReadFileResponse {
     bytes file_content = 1;
     // add other file-related information
 }
-
-
 
 
 // for read/write requests for blocks on datanodes?
