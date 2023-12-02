@@ -1,6 +1,16 @@
 syntax = "proto3";
 
+import "basic.proto";
+
 package network_comms;
+
+service DataNodeProtocol {
+    rpc Heartbeat(EmptyMessage) returns (HeartbeatMessage);
+}
+
+message EmptyMessage {
+
+}
 
 message HeartbeatMessage {
     string node_id = 1;

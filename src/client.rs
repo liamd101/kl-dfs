@@ -1,20 +1,13 @@
+#![allow(dead_code, unused_variables, unused_imports)]
 use crate::proto::FileInfo;
-// use tokio::net::{TcpListener, TcpStream};
-// use tokio::io::{AsyncReadExt, AsyncWriteExt};
-// use prost::Message;
-#[allow(unused_imports)]
 use crate::proto::{
     client_protocols_client::ClientProtocolsClient, ClientInfo, CreateFileRequest,
     CreateFileResponse, DeleteFileRequest, DeleteFileResponse, ReadFileRequest, ReadFileResponse,
     SystemInfoRequest, SystemInfoResponse, UpdateFileRequest, UpdateFileResponse,
 };
-// use std::io::{self, Write};
 use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt};
-// use clap::{App, Arg};
 
-#[allow(unused_imports)]
 use tonic::server;
-#[allow(unused_imports)]
 use tonic::{transport::Channel, Request, Response, Status};
 
 pub struct Client {
@@ -25,7 +18,7 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(id: i64, name_port: String, client_port: String) -> Self {
+    pub fn new(id: i64, name_port: u16, client_port: u16) -> Self {
         Client {
             user_id: id,
             namenode_addr: format!("127.0.0.1:{}", name_port),
@@ -40,6 +33,7 @@ impl Client {
             .connect()
             .await?;
 
+        eprintln!("here");
         let mut client = ClientProtocolsClient::new(channel);
         // let request = tonic::Request::new(SystemInfoRequest::default());
         // let response = client.get_system_status(request).await?;
@@ -121,10 +115,12 @@ impl Client {
                                 file_path: file_path.to_string(), // so far just flat file system, no directories; this is name
                                 file_size: 4096,
                             };
+
                             let request = Request::new(ReadFileRequest {
                                 client: Some(self.client_info.clone()),
                                 file_info: Some(file),
                             });
+
                             let response = client.read_file(request).await?;
                             println!("Response: {:?}", response);
                         }
