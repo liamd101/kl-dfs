@@ -1,4 +1,4 @@
-use crate::namenode::records::{DataNodeInfo, NameNodeRecords};
+use crate::namenode::records::NameNodeRecords;
 use crate::proto::GenericReply;
 #[allow(unused_imports)]
 use crate::proto::{
