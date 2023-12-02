@@ -44,22 +44,23 @@ message SystemInfoResponse {
 }
 
 message CreateFileResponse {
-    string datanode_address = 1;
-    GenericReply response = 2;
+    GenericReply response = 1;
+    string datanode_address = 2;
 }
 
 message UpdateFileResponse {
     GenericReply response = 1;
+    repeated string datanode_addr = 2;
 }
 
 message DeleteFileResponse {
     GenericReply response = 1;
-    repeated string stored_datanode_addr = 2;
+    repeated string datanode_addr = 2;
 }
 
 message ReadFileResponse {
-    bytes file_content = 1;
-    // add other file-related information
+    GenericReply response = 1;
+    repeated string datanode_addr = 2;
 }
 
 

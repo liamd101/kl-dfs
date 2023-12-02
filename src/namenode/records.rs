@@ -88,7 +88,7 @@ impl NameNodeRecords {
         }
     }
 
-    // Removes a file block from block_records
+    // Removes a file block from block_records, amd returns the datanode addresses it lives on
     pub async fn remove_file(&self, file_path: &str, owner: i64) -> Result<Vec<String>, &str> {
         let file_id = Self::get_file_id(file_path, owner);
         let mut block_records = self.block_records.write().unwrap();
@@ -99,7 +99,11 @@ impl NameNodeRecords {
     }
 
     // returns a vector of datanode addresses that the file lives on
-    pub async fn get_file_address(&self, file_path: &str, owner: i64) -> Result<Vec<String>, &str> {
+    pub async fn get_file_addresses(
+        &self,
+        file_path: &str,
+        owner: i64,
+    ) -> Result<Vec<String>, &str> {
         let file_id = Self::get_file_id(file_path, owner);
         let block_records = self.block_records.read().unwrap();
 

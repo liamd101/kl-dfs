@@ -114,7 +114,8 @@ impl ClientProtocols for NameNodeService {
         if let Some(FileInfo {
             file_path,
             file_size,
-        }) = create_request.file_info {
+        }) = create_request.file_info
+        {
             if let Some(ClientInfo { uid }) = create_request.client {
                 match self.records.add_file(&file_path, uid).await {
                     Ok(address) => datanode_address = address,
@@ -135,32 +136,39 @@ impl ClientProtocols for NameNodeService {
         Ok(Response::new(response))
     }
 
+    // receives an update file request, returns a list of namenode addresses containing that file
     async fn update_file(
         &self,
         request: tonic::Request<UpdateFileRequest>,
     ) -> std::result::Result<tonic::Response<UpdateFileResponse>, tonic::Status> {
-        // println!("Received UpdateFileRequest");
-        // let update_request = request.into_inner();
-        // let mut datanode_address = String::new();
+        println!("Received UpdateFileRequest");
+        let update_request = request.into_inner();
 
-        // if let Some(FileInfo {
-        //     file_path,
-        //     file_size,
-        // }) = update_request.file_info {
-        //     if let Some(ClientInfo { uid }) = update_request.client {
-        //         match self.records.update_file(&file_path, uid).await {
-        //             Ok(address) => datanode_address = address,
-        //             Err(err) => {
-        //                 println!("{}", err);
-        //                 return Err(tonic::Status::internal(
-        //                     "Failed to add file (no datanodes running)",
-        //                 ));
-        //             }
-        //         }
-        //     }
-        // }
-
-        unimplemented!()
+        if let Some(FileInfo {
+            file_path,
+            file_size,
+        }) = update_request.file_info
+        {
+            if let Some(ClientInfo { uid }) = update_request.client {
+                match self.records.get_file_addresses(&file_path, uid).await {
+                    Ok(addresses) => {
+                        let upd_response = UpdateFileResponse {
+                            response: Some(GenericReply { is_success: true }),
+                            datanode_addr: addresses,
+                        };
+                        Ok(Response::new(upd_response))
+                    }
+                    Err(err) => {
+                        println!("{}", err);
+                        Err(tonic::Status::internal("File does not exist"))
+                    }
+                }
+            } else {
+                Err(tonic::Status::internal("Client information not provided"))
+            }
+        } else {
+            Err(tonic::Status::internal("File information not provided"))
+        }
     }
 
     async fn delete_file(
@@ -173,29 +181,66 @@ impl ClientProtocols for NameNodeService {
         if let Some(FileInfo {
             file_path,
             file_size,
-        }) = delete_request.file_info {
+        }) = delete_request.file_info
+        {
             if let Some(ClientInfo { uid }) = delete_request.client {
                 match self.records.remove_file(&file_path, uid).await {
-                    Ok(address) => {
-                        
-                    },
+                    Ok(addresses) => {
+                        let del_response = DeleteFileResponse {
+                            response: Some(GenericReply { is_success: true }),
+                            datanode_addr: addresses,
+                        };
+                        Ok(Response::new(del_response))
+                    }
                     Err(err) => {
                         println!("{}", err);
-                        return Err(tonic::Status::internal(
+                        Err(tonic::Status::internal(
                             "Failed to add file (no datanodes running)",
-                        ));
+                        ))
                     }
                 }
+            } else {
+                // handle case where client info isn't available
+                Err(tonic::Status::internal("Client information not provided"))
             }
+        } else {
+            // handle case where file info isn't available
+            Err(tonic::Status::internal("File information not provided"))
         }
-
-        unimplemented!()
     }
 
+    // returns list of datanode addresses containing this file
     async fn read_file(
         &self,
         request: tonic::Request<ReadFileRequest>,
     ) -> std::result::Result<tonic::Response<ReadFileResponse>, tonic::Status> {
-        unimplemented!()
+        println!("Received ReadFileRequest");
+        let read_request = request.into_inner();
+
+        if let Some(FileInfo {
+            file_path,
+            file_size,
+        }) = read_request.file_info
+        {
+            if let Some(ClientInfo { uid }) = read_request.client {
+                match self.records.get_file_addresses(&file_path, uid).await {
+                    Ok(addresses) => {
+                        let read_resp = ReadFileResponse {
+                            response: Some(GenericReply { is_success: true }),
+                            datanode_addr: addresses,
+                        };
+                        Ok(Response::new(read_resp))
+                    }
+                    Err(err) => {
+                        println!("{}", err);
+                        Err(tonic::Status::internal("File does not exist"))
+                    }
+                }
+            } else {
+                Err(tonic::Status::internal("Client information not provided"))
+            }
+        } else {
+            Err(tonic::Status::internal("File information not provided"))
+        }
     }
 }
