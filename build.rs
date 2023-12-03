@@ -5,6 +5,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "protocols/datanode.proto",
         "protocols/client.proto",
         "protocols/basic.proto",
+        "protocols/node.proto",
     ];
     tonic_build::configure()
         .build_server(true)

@@ -1,3 +1,14 @@
 syntax = "proto3";
 
+import "google/protobuf/timestamp.proto";
+
 package network_comms;
+
+service HearbeatProtocol {
+    rpc send_heartbeat(Heartbeat) returns (Heartbeat);
+}
+
+message Heartbeat {
+    string address = 1;
+    google.protobuf.Timestamp time = 2;
+}

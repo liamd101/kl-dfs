@@ -6,6 +6,9 @@ package network_comms;
 
 service DataNodeProtocol {
     rpc Heartbeat(EmptyMessage) returns (HeartbeatMessage);
+    rpc WriteBlock(WriteBlockRequest) returns (GenericReply);
+    rpc ReadBlock(ReadBlockRequest) returns (GenericReply);
+    rpc DeleteBlock(DeleteBlockRequest) returns (GenericReply);
 }
 
 message EmptyMessage {
@@ -15,4 +18,16 @@ message EmptyMessage {
 message HeartbeatMessage {
     string node_id = 1;
     int64 timestamp = 2;
+}
+
+message WriteBlockRequest {
+    
+}
+
+message ReadBlockRequest {
+
+}
+
+message DeleteBlockRequest {
+
 }

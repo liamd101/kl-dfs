@@ -1,6 +1,5 @@
-use crate::namenode::records::NameNodeRecords;
-#![allow(dead_code, unused_variables, unused_imports)]
 use crate::datanode::writer::{self, Writer};
+use crate::namenode::records::NameNodeRecords;
 use crate::proto::{client_protocols_client::ClientProtocolsClient, GenericReply};
 use crate::proto::{
     client_protocols_server::{ClientProtocols, ClientProtocolsServer},
@@ -13,13 +12,8 @@ use std::{net::SocketAddr, str::FromStr};
 use tonic::transport::Server;
 use tonic::Response;
 
-use crate::datanode::DataNodeServer;
-
 use crate::block::Block;
-
 use crate::datanode::DataNodeServer;
-
-use crate::block::Block;
 
 pub struct NameNodeServer {
     // datanodes: Vec<DataNode>,
