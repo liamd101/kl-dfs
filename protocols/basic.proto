@@ -4,6 +4,7 @@ package network_comms;
 
 message GenericReply {
     bool is_success = 1;
+    string message = 2;
 }
 
 message ClientInfo {

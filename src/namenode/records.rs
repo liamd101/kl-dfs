@@ -4,9 +4,10 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{atomic, Mutex, RwLock};
 use std::time::{Duration, Instant};
 // for atomic counter for id generation
-// use std::sync::atomic::{AtomicUsize, Ordering};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::SystemTime;
 
 #[derive(Clone)]
 pub struct DataNodeInfo {
@@ -20,8 +21,9 @@ pub struct NameNodeRecords {
     datanodes: Mutex<HashMap<u64, DataNodeInfo>>, // datanode id : datanode info
     datanode_ids: Mutex<HashMap<String, u64>>,    // datanode ip string, datanode id
     block_records: RwLock<BlockRecords>, // maps blocks to block metadata (including which datanodes a block is on)
-    // block_id_counter: AtomicUsize,
+    datanode_id_counter: AtomicUsize,
     default_block_size: u64,
+    heartbeat_records: Mutex<HashMap<String, SystemTime>>, // map from datanode ip address to time of last message
 }
 
 // TODO: heartbeat monitor - sends and checks for heartbeats and keeps datanodes updated with alive statuses
@@ -32,8 +34,9 @@ impl NameNodeRecords {
             datanodes: Mutex::new(HashMap::new()),
             datanode_ids: Mutex::new(HashMap::new()),
             block_records: RwLock::new(BlockRecords::new()),
-            // block_id_counter: AtomicUsize::new(0),
+            datanode_id_counter: AtomicUsize::new(0),
             default_block_size: 4096,
+            heartbeat_records: Mutex::new(HashMap::new()),
         }
     }
 
@@ -110,6 +113,45 @@ impl NameNodeRecords {
         match block_records.get_block_datanodes(&file_id) {
             Ok(datanodes) => Ok(datanodes),
             Err(_err) => Err("Block Not in Records"),
+        }
+    }
+
+    // adds datanode to records and returns the datanode id
+    fn add_datanode(&self, addr: &str) {
+        let mut datanodes = self.datanodes.lock().unwrap();
+        let mut datanode_ids = self.datanode_ids.lock().unwrap();
+        if let Some(_) = datanode_ids.get(addr) {
+            return;
+        }
+        let new_id = self
+            .datanode_id_counter
+            .fetch_add(1, atomic::Ordering::SeqCst) as u64;
+        let info = DataNodeInfo {
+            id: new_id,
+            addr: addr.to_string(),
+            alive: true,
+        };
+        datanode_ids.insert(addr.to_string(), new_id);
+        datanodes.insert(new_id, info);
+    }
+
+    pub async fn record_heartbeat(
+        &self,
+        address: &str,
+        // timestamp:
+    ) {
+        let mut heartbeats = self.heartbeat_records.lock().unwrap();
+        if !heartbeats.contains_key(address) {
+            println!("New datanode at address: {}", address);
+            // process new datanode by adding it to system
+            self.add_datanode(address);
+        }
+        // update heartbeat time record
+        heartbeats.insert(address.to_string(), SystemTime::now());
+
+        println!("Current datanode heartbeats:");
+        for (addr, time) in heartbeats.iter() {
+            println!("Datanode {}: {:?}", addr, time);
         }
     }
 }

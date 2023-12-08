@@ -9,6 +9,8 @@ use crate::proto::EmptyMessage;
 use crate::proto::HeartbeatMessage;
 
 use crate::datanode::storage::Storage;
+use crate::proto::{hearbeat_protocol_client::HearbeatProtocolClient, GenericReply, Heartbeat};
+use tonic::transport::Channel;
 
 /// Server that runs a datanode
 #[derive(Clone)]
@@ -51,27 +53,37 @@ impl DataNodeServer {
 
     pub async fn send_heartbeat_loop(&self) -> Result<(), Box<dyn Error>> {
         let mut interval = interval(Duration::from_secs(5));
+        let channel = Channel::from_shared(format!("http://{}", self.datanode_addr))
+            .unwrap()
+            .connect()
+            .await?;
+
+        let mut heartbeat_client = HearbeatProtocolClient::new(channel);
+
         loop {
             tokio::select! {
                 _ = interval.tick() => {
-                    let request = tonic::Request::new(EmptyMessage{});
-                    self.heartbeat(request).await?;
+                    let request = tonic::Request::new(Heartbeat {
+                        address: self.datanode_addr.to_string(),
+                    });
+                    let response = heartbeat_client.send_heartbeat(request).await?;
+                    println!("Received heartbeat response: {:?}", response);
                 }
             }
         }
     }
 }
 
-#[tonic::async_trait]
-impl DataNodeProtocol for DataNodeServer {
-    async fn heartbeat(
-        &self,
-        _: tonic::Request<EmptyMessage>,
-    ) -> Result<tonic::Response<HeartbeatMessage>, tonic::Status> {
-        let heartbeat = HeartbeatMessage {
-            node_id: self.datanode_addr.to_string(),
-            timestamp: Utc::now().timestamp(),
-        };
-        Ok(tonic::Response::new(heartbeat))
-    }
-}
+// #[tonic::async_trait]
+// impl DataNodeProtocol for DataNodeServer {
+//     async fn heartbeat(
+//         &self,
+//         _: tonic::Request<EmptyMessage>,
+//     ) -> Result<tonic::Response<HeartbeatMessage>, tonic::Status> {
+//         let heartbeat = HeartbeatMessage {
+//             node_id: self.datanode_addr.to_string(),
+//             timestamp: Utc::now().timestamp(),
+//         };
+//         Ok(tonic::Response::new(heartbeat))
+//     }
+// }

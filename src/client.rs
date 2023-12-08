@@ -136,19 +136,3 @@ impl Client {
         Ok(())
     }
 }
-
-// struct ClientService {
-//     client: Client,
-// }
-
-// #[tonic::async_trait]
-// impl ClientProtocols for ClientService {
-
-//     async fn get_system_status(
-//         &self,
-//         request: Request<SystemInfoRequest>,
-//     ) -> Result<Response<SystemInfoResponse>, Status> {
-//         unimplemented!()
-//     }
-
-// }

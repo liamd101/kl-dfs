@@ -7,6 +7,10 @@ use crate::proto::{
     FileInfo, NodeStatus, ReadFileRequest, ReadFileResponse, SystemInfoRequest, SystemInfoResponse,
     UpdateFileRequest, UpdateFileResponse,
 };
+use crate::proto::{
+    hearbeat_protocol_server::{HearbeatProtocol, HearbeatProtocolServer},
+    Heartbeat,
+};
 use std::sync::Arc;
 use std::{net::SocketAddr, str::FromStr};
 use tonic::transport::Server;
@@ -41,12 +45,16 @@ impl NameNodeServer {
                 return Err(err.into());
             }
         };
+
         let client_protocols_service =
             NameNodeService::new(self.address.clone(), Arc::clone(&self.records));
         println!("Server listening on {}", self.address);
 
         Server::builder()
             .add_service(ClientProtocolsServer::new(client_protocols_service))
+            .add_service(HearbeatProtocolServer::new(HeartbeatRecordService::new(
+                Arc::clone(&self.records),
+            )))
             .serve(socket)
             .await?;
 
@@ -113,6 +121,7 @@ impl ClientProtocols for NameNodeService {
         println!("Received CreateFileRequest");
         let create_request = request.into_inner();
         let mut datanode_address = String::new();
+        let mut file_path = String::new();
 
         if let Some(FileInfo {
             file_path,
@@ -134,7 +143,10 @@ impl ClientProtocols for NameNodeService {
 
         let response = CreateFileResponse {
             datanode_address: datanode_address,
-            response: Some(GenericReply { is_success: true }),
+            response: Some(GenericReply {
+                is_success: true,
+                message: format!("Create request successfully processed for: {}", file_path),
+            }),
         };
         Ok(Response::new(response))
     }
@@ -156,7 +168,13 @@ impl ClientProtocols for NameNodeService {
                 match self.records.get_file_addresses(&file_path, uid).await {
                     Ok(addresses) => {
                         let upd_response = UpdateFileResponse {
-                            response: Some(GenericReply { is_success: true }),
+                            response: Some(GenericReply {
+                                is_success: true,
+                                message: format!(
+                                    "Update request successfully processed for: {}",
+                                    file_path
+                                ),
+                            }),
                             datanode_addr: addresses,
                         };
                         Ok(Response::new(upd_response))
@@ -190,7 +208,13 @@ impl ClientProtocols for NameNodeService {
                 match self.records.remove_file(&file_path, uid).await {
                     Ok(addresses) => {
                         let del_response = DeleteFileResponse {
-                            response: Some(GenericReply { is_success: true }),
+                            response: Some(GenericReply {
+                                is_success: true,
+                                message: format!(
+                                    "Delete request succesfully processed for: {}",
+                                    file_path
+                                ),
+                            }),
                             datanode_addr: addresses,
                         };
                         Ok(Response::new(del_response))
@@ -229,7 +253,13 @@ impl ClientProtocols for NameNodeService {
                 match self.records.get_file_addresses(&file_path, uid).await {
                     Ok(addresses) => {
                         let read_resp = ReadFileResponse {
-                            response: Some(GenericReply { is_success: true }),
+                            response: Some(GenericReply {
+                                is_success: true,
+                                message: format!(
+                                    "Read request successfully processed for: {}",
+                                    file_path
+                                ),
+                            }),
                             datanode_addr: addresses,
                         };
                         Ok(Response::new(read_resp))
@@ -245,5 +275,38 @@ impl ClientProtocols for NameNodeService {
         } else {
             Err(tonic::Status::internal("File information not provided"))
         }
+    }
+}
+
+struct HeartbeatRecordService {
+    records: Arc<NameNodeRecords>,
+}
+
+impl HeartbeatRecordService {
+    fn new(records: Arc<NameNodeRecords>) -> Self {
+        Self { records }
+    }
+}
+
+#[tonic::async_trait]
+impl HearbeatProtocol for HeartbeatRecordService {
+    async fn send_heartbeat(
+        &self,
+        request: tonic::Request<Heartbeat>,
+    ) -> std::result::Result<tonic::Response<GenericReply>, tonic::Status> {
+        let incoming_heartbeat = request.into_inner();
+        println!("Received heartbeat: {:?}", incoming_heartbeat);
+
+        // let Heartbeat{address, time} = incoming_heartbeat;
+        let Heartbeat { address } = incoming_heartbeat;
+
+        // self.records.record_heartbeat(&address, time);
+        self.records.record_heartbeat(&address).await;
+        let reply = GenericReply {
+            is_success: true,
+            message: "Heartbeat recorded successfully".to_string(),
+        };
+
+        Ok(Response::new(reply))
     }
 }
