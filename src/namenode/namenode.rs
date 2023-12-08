@@ -30,7 +30,7 @@ pub struct NameNodeServer {
 }
 
 impl NameNodeServer {
-    pub fn new(port: String) -> Self {
+    pub fn new(port: u16) -> Self {
         Self {
             address: format!("127.0.0.1:{}", port),
             records: Arc::new(NameNodeRecords::new()),

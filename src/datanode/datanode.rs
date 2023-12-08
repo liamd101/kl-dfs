@@ -23,18 +23,24 @@ pub struct DataNodeServer {
 
     /// Connection to the namenode
     pub namenode_addr: SocketAddr,
+
+    address_str: String,
+    namenode_address_str: String,
 }
 
 impl DataNodeServer {
-    pub fn new(port: u16) -> Self {
+    pub fn new(port: u16, namenode_port: u16) -> Self {
         let datanode_addr: SocketAddr =
             SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
         let namenode_addr: SocketAddr =
             SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 3000);
+        
         DataNodeServer {
             datanode_addr,
             storage: Storage::new(),
             namenode_addr,
+            address_str: format!("127.0.0.1:{}", port),
+            namenode_address_str: format!("127.0.0.1:{}", namenode_port),
         }
     }
 
@@ -53,7 +59,7 @@ impl DataNodeServer {
 
     pub async fn send_heartbeat_loop(&self) -> Result<(), Box<dyn Error>> {
         let mut interval = interval(Duration::from_secs(5));
-        let channel = Channel::from_shared(format!("http://{}", self.datanode_addr))
+        let channel = Channel::from_shared(format!("http://{}", self.namenode_address_str))
             .unwrap()
             .connect()
             .await?;

@@ -24,31 +24,41 @@ enum Command {
     Datanode { port: u16 },
     Namenode {},
     Client {},
+    Heartbeat_test {},
 }
 
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
+    let namenode_port = 3000;
+    let client_port = 3030;
+    let datanode_port = 7000;
+
     match args.command {
         Command::Datanode { port } => {
-            let dataserver = DataNodeServer::new(port);
-            match dataserver.run_dataserver().await {
-                Ok(_) => println!("DataNode ran successfully"),
-                Err(err) => println!("Error: {}", err),
-            }
+            // let dataserver = DataNodeServer::new(port);
+            // match dataserver.run_dataserver().await {
+            //     Ok(_) => println!("DataNode ran successfully"),
+            //     Err(err) => println!("Error: {}", err),
+            // }
         }
 
         Command::Namenode {} => {
-            let nameserver = NameNodeServer::new("3000".to_string());
+            let nameserver = NameNodeServer::new(namenode_port);
             let _ = nameserver.run_nameserver().await;
         }
 
         Command::Client {} => {
-            let client = Client::new(1, 3000, 3030);
+            let client = Client::new(1, namenode_port, client_port);
             match client.run_client().await {
                 Ok(_) => println!("Client ran successfully"),
                 Err(err) => println!("Client Error: {}", err),
             }
+        }
+
+        Command::Heartbeat_test {  } => {
+            let dataserver = DataNodeServer::new(datanode_port, namenode_port);
+            let _ = dataserver.run_dataserver().await;
         }
     }
 }
