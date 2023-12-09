@@ -24,7 +24,7 @@ enum Command {
     Datanode { port: u16 },
     Namenode {},
     Client {},
-    Heartbeat_test {},
+    Heartbeat_test { port: u16 },
 }
 
 #[tokio::main]
@@ -32,7 +32,7 @@ async fn main() {
     let args = Args::parse();
     let namenode_port = 3000;
     let client_port = 3030;
-    let datanode_port = 7000;
+    // let datanode_port = 7000;
 
     match args.command {
         Command::Datanode { port } => {
@@ -56,8 +56,8 @@ async fn main() {
             }
         }
 
-        Command::Heartbeat_test {  } => {
-            let dataserver = DataNodeServer::new(datanode_port, namenode_port);
+        Command::Heartbeat_test { port } => {
+            let dataserver = DataNodeServer::new(port, namenode_port);
             let _ = dataserver.run_dataserver().await;
         }
     }
