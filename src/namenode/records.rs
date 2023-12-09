@@ -22,7 +22,7 @@ pub struct NameNodeRecords {
     datanode_ids: Mutex<HashMap<String, u64>>,    // datanode ip string, datanode id
     block_records: RwLock<BlockRecords>, // maps blocks to block metadata (including which datanodes a block is on)
     datanode_id_counter: AtomicUsize,
-    default_block_size: u64,
+    // default_block_size: u64,
     heartbeat_records: Mutex<HashMap<String, SystemTime>>, // map from datanode ip address to time of last message
 }
 
@@ -35,7 +35,7 @@ impl NameNodeRecords {
             datanode_ids: Mutex::new(HashMap::new()),
             block_records: RwLock::new(BlockRecords::new()),
             datanode_id_counter: AtomicUsize::new(0),
-            default_block_size: 4096,
+            // default_block_size: 4096,
             heartbeat_records: Mutex::new(HashMap::new()),
         }
     }
@@ -47,9 +47,10 @@ impl NameNodeRecords {
     }
 
     // returns hash(file_name || uid)
-    fn get_file_id(file_name: &str, uid: i64) -> u64 {
+    fn get_file_id(file_name: &str) -> u64 {
+        // get file_id from hashing
         let mut hasher = DefaultHasher::new();
-        (file_name, uid).hash(&mut hasher);
+        file_name.hash(&mut hasher);
         hasher.finish()
     }
 
@@ -68,8 +69,8 @@ impl NameNodeRecords {
     }
 
     // Adds the new file block to block_records
-    pub async fn add_file(&self, file_path: &str, owner: i64) -> Result<String, &str> {
-        let file_id = Self::get_file_id(file_path, owner);
+    pub async fn add_file(&self, file_path: &str, _owner: i64) -> Result<String, &str> {
+        let file_id = Self::get_file_id(file_path);
         let mut block_records = self.block_records.write().unwrap();
         match block_records.add_block_to_records(file_id) {
             Ok(()) => {
@@ -92,8 +93,8 @@ impl NameNodeRecords {
     }
 
     // Removes a file block from block_records, amd returns the datanode addresses it lives on
-    pub async fn remove_file(&self, file_path: &str, owner: i64) -> Result<Vec<String>, &str> {
-        let file_id = Self::get_file_id(file_path, owner);
+    pub async fn remove_file(&self, file_path: &str, _owner: i64) -> Result<Vec<String>, &str> {
+        let file_id = Self::get_file_id(file_path);
         let mut block_records = self.block_records.write().unwrap();
         match block_records.remove_block_from_records(&file_id) {
             Ok(ip_addresses) => Ok(ip_addresses),
@@ -107,7 +108,7 @@ impl NameNodeRecords {
         file_path: &str,
         owner: i64,
     ) -> Result<Vec<String>, &str> {
-        let file_id = Self::get_file_id(file_path, owner);
+        let file_id = Self::get_file_id(file_path);
         let block_records = self.block_records.read().unwrap();
 
         match block_records.get_block_datanodes(&file_id) {
@@ -116,7 +117,7 @@ impl NameNodeRecords {
         }
     }
 
-    // adds datanode to records and returns the datanode id
+    // adds datanode to records
     fn add_datanode(&self, addr: &str) {
         let mut datanodes = self.datanodes.lock().unwrap();
         let mut datanode_ids = self.datanode_ids.lock().unwrap();
@@ -153,5 +154,106 @@ impl NameNodeRecords {
         for (addr, time) in heartbeats.iter() {
             println!("Datanode {}: {:?}", addr, time);
         }
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_add_datanode() {
+        let records = NameNodeRecords::new();
+        let datanode = "127.0.0.1:5000";
+
+        records.add_datanode(&datanode);
+
+        let datanodes = records.datanodes.lock().unwrap();
+        let datanode_ids = records.datanode_ids.lock().unwrap();
+        assert_eq!(datanodes.len(), 1);
+        assert_eq!(datanode_ids.len(), 1);
+
+        let datanode_info = datanodes.get(&0).unwrap();
+        assert_eq!(datanode_info.addr, datanode);
+    }
+
+    // testing with one datanode in the system
+    #[tokio::test]
+    async fn test_add_read_remove_file_1() {
+        let records = NameNodeRecords::new();
+        let datanode = "127.0.0.1:5000";
+        records.add_datanode(&datanode);
+
+        let file_path = "test_file";
+        let owner_uid = 123;
+
+        // test adding a file returns the correct datanode address
+        let result = records.add_file(file_path, owner_uid).await;
+        assert!(result.is_ok());
+        let datanode_addr = result.unwrap();
+        assert_eq!(datanode_addr, datanode);
+
+        // test reading/getting file returns correct datanode address
+        let addresses = records.get_file_addresses(file_path, owner_uid).await;
+        assert!(addresses.is_ok());
+        let addrs = addresses.unwrap();
+        assert_eq!(addrs.len(), 1);
+        assert_eq!(addrs, vec![datanode]);
+
+        // test removing file returns correct datanode address
+        let removal_result: Result<Vec<String>, &str> = records.remove_file(file_path, owner_uid).await;
+        assert!(removal_result.is_ok());
+        let remove_addr = removal_result.unwrap();
+        assert_eq!(remove_addr, vec![datanode]);
+
+        // test file is actually removed after removal
+        let addresses_after_removal = records.get_file_addresses(file_path, owner_uid).await;
+        assert!(addresses_after_removal.is_err());
+    }
+
+    // testing with multiple datanodes in the system
+    #[tokio::test]
+    async fn test_add_read_remove_file_2() {
+        let records = NameNodeRecords::new();
+        let datanode1 = "127.0.0.1:5000";
+        let datanode2 = "127.0.0.1:5001";
+        let datanode3 = "127.0.0.1:5002";
+        records.add_datanode(&datanode1);
+        records.add_datanode(&datanode2);
+        records.add_datanode(&datanode3);
+
+        let file_path_0 = "test_file";
+        let file_path_1 = "test_file_1";
+        let owner_uid = 123;
+
+        // test adding files
+        let result = records.add_file(file_path_0, owner_uid).await;
+        assert!(result.is_ok());
+        let datanode_0 = result.unwrap();
+        let result_1 = records.add_file(file_path_1, owner_uid).await;
+        assert!(result_1.is_ok());
+        let datanode_1 = result_1.unwrap();
+
+        // test reading files
+        let read_result = records.get_file_addresses(file_path_0, owner_uid).await;
+        assert!(read_result.is_ok());
+        assert_eq!(read_result.unwrap(), vec![datanode_0.clone()]);
+
+        let read_result_1 = records.get_file_addresses(file_path_1, owner_uid).await;
+        assert!(read_result_1.is_ok());
+        assert_eq!(read_result_1.unwrap(), vec![datanode_1.clone()]);
+        // println!("{}, {}", datanode_0, datanode_1);
+
+        // testing deletes
+        let removal_result: Result<Vec<String>, &str> = records.remove_file(file_path_0, owner_uid).await;
+        assert!(removal_result.is_ok());
+        let remove_addr = removal_result.unwrap();
+        assert_eq!(remove_addr, vec![datanode_0]);
+        
+        let removal_result: Result<Vec<String>, &str> = records.remove_file(file_path_1, owner_uid).await;
+        assert!(removal_result.is_ok());
+        let remove_addr = removal_result.unwrap();
+        assert_eq!(remove_addr, vec![datanode_1]);
     }
 }
