@@ -33,7 +33,7 @@ impl Storage {
         }
     }
 
-    pub async fn read(&mut self, name: &str) -> Result<Vec<u8>, Box<dyn Error>> {
+    pub async fn read(&self, name: &str) -> Result<Vec<u8>, Box<dyn Error>> {
         if !self.exists(name) {
             return Err("Block does not exist".into());
         }
@@ -44,7 +44,17 @@ impl Storage {
         Ok(buffer)
     }
 
-    pub async fn write(&mut self, name: &str, mut data: Vec<u8>) -> Result<(), Box<dyn Error>> {
+    pub async fn create(&mut self, name: &str) -> Result<(), Box<dyn Error>> {
+        if self.exists(name) {
+            return Err("Block already exists".into());
+        }
+        println!("Creating block: {}", name);
+        let block = Block::new(name.to_string(), vec![]);
+        self.blocks.push(block);
+        Ok(())
+    }
+
+    pub async fn update(&mut self, name: &str, mut data: Vec<u8>) -> Result<(), Box<dyn Error>> {
         let blockpath = self.data_dir.join(name);
         let mut file = if self.exists(name) {
             File::open(blockpath).await?
@@ -65,6 +75,6 @@ impl Storage {
     }
 
     fn exists(&self, name: &str) -> bool {
-        self.data_dir.join(name).exists() && self.blocks.iter().any(|b| b.name == name)
+        self.blocks.iter().any(|b| b.name == name)
     }
 }

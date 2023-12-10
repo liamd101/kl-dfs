@@ -1,9 +1,9 @@
 #![allow(dead_code, unused_variables, unused_imports)]
-use crate::proto::FileInfo;
+use crate::proto::data_node_protocols_client::DataNodeProtocolsClient;
 use crate::proto::{
     client_protocols_client::ClientProtocolsClient, ClientInfo, CreateFileRequest,
-    CreateFileResponse, DeleteFileRequest, DeleteFileResponse, ReadFileRequest, ReadFileResponse,
-    SystemInfoRequest, SystemInfoResponse, UpdateFileRequest, UpdateFileResponse,
+    CreateFileResponse, DeleteFileRequest, DeleteFileResponse, FileInfo, ReadFileRequest,
+    ReadFileResponse, SystemInfoRequest, SystemInfoResponse, UpdateFileRequest, UpdateFileResponse,
 };
 use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt};
 
@@ -33,7 +33,6 @@ impl Client {
             .connect()
             .await?;
 
-        eprintln!("here");
         let mut client = ClientProtocolsClient::new(channel);
         // let request = tonic::Request::new(SystemInfoRequest::default());
         // let response = client.get_system_status(request).await?;
@@ -75,12 +74,33 @@ impl Client {
                             };
                             let request = Request::new(CreateFileRequest {
                                 client: Some(self.client_info.clone()),
-                                file_info: Some(file),
+                                file_info: Some(file.clone()),
                             });
                             let response = client.create_file(request).await?;
                             println!("Response: {:?}", response);
+
+                            let response = response.into_inner();
+                            let datanode_addr = response.datanode_address;
+
+                            println!("Connecting to datanode: {}", datanode_addr);
+                            let channel =
+                                Channel::from_shared(format!("http://{}", datanode_addr))
+                                    .unwrap()
+                                    .connect()
+                                    .await?;
+
+                            let mut datanode_client = DataNodeProtocolsClient::new(channel);
+                            println!("Connected to datanode: {}", datanode_addr);
+
+                            let request = Request::new(CreateFileRequest {
+                                client: Some(self.client_info.clone()),
+                                file_info: Some(file.clone()),
+                            });
+                            let response = datanode_client.create_file(request).await?;
+                            println!("Response: {:?}", response);
                         }
                     }
+
                     "update" => {
                         if let Some(file_path) = iter.next() {
                             let file = FileInfo {

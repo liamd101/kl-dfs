@@ -36,11 +36,8 @@ async fn main() {
 
     match args.command {
         Command::Datanode { port } => {
-            // let dataserver = DataNodeServer::new(port);
-            // match dataserver.run_dataserver().await {
-            //     Ok(_) => println!("DataNode ran successfully"),
-            //     Err(err) => println!("Error: {}", err),
-            // }
+            let dataserver = DataNodeServer::new(port, namenode_port);
+            let _ = dataserver.run_dataserver().await;
         }
 
         Command::Namenode {} => {
