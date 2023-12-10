@@ -1,33 +1,31 @@
 syntax = "proto3";
 
 import "basic.proto";
+import "client.proto";
 
 package network_comms;
 
-service DataNodeProtocol {
-    rpc Heartbeat(EmptyMessage) returns (HeartbeatMessage);
-    rpc WriteBlock(WriteBlockRequest) returns (GenericReply);
-    rpc ReadBlock(ReadBlockRequest) returns (GenericReply);
-    rpc DeleteBlock(DeleteBlockRequest) returns (GenericReply);
+service DataNodeProtocols {
+    rpc CreateFile(CreateFileRequest) returns (CreateBlockResponse);
+    rpc UpdateFile(UpdateFileRequest) returns (UpdateBlockResponse);
+    rpc DeleteFile(DeleteFileRequest) returns (DeleteBlockResponse);
+    rpc ReadFile(ReadFileRequest) returns (ReadBlockResponse);
 }
 
-message EmptyMessage {
-
+message CreateBlockResponse {
+    bool success = 1;
 }
 
-message HeartbeatMessage {
-    string node_id = 1;
-    int64 timestamp = 2;
+message UpdateBlockResponse {
+    bool success = 1;
 }
 
-message WriteBlockRequest {
-    
+message DeleteBlockResponse {
+    bool success = 1;
 }
 
-message ReadBlockRequest {
-
-}
-
-message DeleteBlockRequest {
-
+message ReadBlockResponse {
+    int64 bytes_read = 1;
+    int64 bytes_total = 2;
+    bytes block_data = 3;
 }
