@@ -70,10 +70,10 @@ impl NameNodeService {
     }
 }
 
-impl Into<NodeList> for Vec<String> {
-    fn into(self) -> NodeList {
+impl From<Vec<String>> for NodeList {
+    fn from(val: Vec<String>) -> Self {
         NodeList {
-            nodes: self.into_iter().collect(),
+            nodes: val.into_iter().collect(),
         }
     }
 }

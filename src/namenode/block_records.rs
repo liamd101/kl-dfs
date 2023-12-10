@@ -28,10 +28,10 @@ impl BlockRecords {
         datanode_addr: String,
     ) -> Result<Vec<String>, &str> {
         match self.block_mappings.get(&block_id) {
-            Some(addrs) => Ok(*addrs),
+            Some(addrs) => Ok(addrs.clone()),
             None => {
                 let metadata = vec![datanode_addr.clone()];
-                self.block_mappings.insert(block_id, metadata);
+                self.block_mappings.insert(block_id, metadata.clone());
                 Ok(metadata.clone())
             }
         }
