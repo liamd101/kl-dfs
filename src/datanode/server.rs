@@ -114,7 +114,6 @@ impl DataNodeProtocols for DataNodeServer {
         drop(storage);
 
         let reply = CreateBlockResponse { success: true };
-
         Ok(tonic::Response::new(reply))
     }
 

@@ -37,13 +37,19 @@ impl Storage {
         Ok(())
     }
 
-    pub async fn update(&mut self, _name: &str, mut _data: Vec<u8>) -> Result<(), Box<dyn Error>> {
+    pub async fn update(&mut self, name: &str, data: Vec<u8>) -> Result<(), Box<dyn Error>> {
+        let block = self.get_block_mut(name).unwrap();
+        block.write(data);
         Ok(())
     }
 
     pub async fn delete(&mut self, name: &str) -> Result<(), Box<dyn Error>> {
         self.blocks.retain(|b| b.name != name);
         Ok(())
+    }
+
+    fn get_block_mut(&mut self, name: &str) -> Option<&mut Block> {
+        self.blocks.iter_mut().find(|b| b.name == name)
     }
 
     fn get_block(&self, name: &str) -> Option<&Block> {
