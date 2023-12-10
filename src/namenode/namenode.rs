@@ -120,29 +120,33 @@ impl ClientProtocols for NameNodeService {
     ) -> Result<tonic::Response<CreateFileResponse>, tonic::Status> {
         println!("Received CreateFileRequest");
         let create_request = request.into_inner();
-        let mut datanode_address = String::new();
-        let mut file_path = String::new();
+        let mut datanode_addr = String::new();
 
-        if let Some(FileInfo {
+        let FileInfo {
             file_path,
             file_size,
-        }) = create_request.file_info
-        {
-            if let Some(ClientInfo { uid }) = create_request.client {
-                match self.records.add_file(&file_path, uid).await {
-                    Ok(address) => datanode_address = address,
-                    Err(err) => {
-                        println!("{}", err);
-                        return Err(tonic::Status::internal(
-                            "Failed to add file (no datanodes running)",
-                        ));
-                    }
-                }
+        } = create_request
+            .file_info
+            .expect("File information not provided");
+        let ClientInfo { uid } = create_request
+            .client
+            .expect("Client information not provided");
+
+        match self.records.add_file(&file_path, uid).await {
+            Ok(address) => datanode_addr = address,
+            Err(err) => {
+                println!("{}", err);
+                return Err(tonic::Status::internal(
+                    "Failed to add file (no datanodes running)",
+                ));
             }
         }
 
+        println!("datanode_address: {}", datanode_addr);
+        println!("file: {}", file_path);
+
         let response = CreateFileResponse {
-            datanode_address: datanode_address,
+            datanode_addr,
             response: Some(GenericReply {
                 is_success: true,
                 message: format!("Create request successfully processed for: {}", file_path),
@@ -159,36 +163,34 @@ impl ClientProtocols for NameNodeService {
         println!("Received UpdateFileRequest");
         let update_request = request.into_inner();
 
-        if let Some(FileInfo {
+        let FileInfo {
             file_path,
             file_size,
-        }) = update_request.file_info
-        {
-            if let Some(ClientInfo { uid }) = update_request.client {
-                match self.records.get_file_addresses(&file_path, uid).await {
-                    Ok(addresses) => {
-                        let upd_response = UpdateFileResponse {
-                            response: Some(GenericReply {
-                                is_success: true,
-                                message: format!(
-                                    "Update request successfully processed for: {}",
-                                    file_path
-                                ),
-                            }),
-                            datanode_addr: addresses,
-                        };
-                        Ok(Response::new(upd_response))
-                    }
-                    Err(err) => {
-                        println!("{}", err);
-                        Err(tonic::Status::internal("File does not exist"))
-                    }
-                }
-            } else {
-                Err(tonic::Status::internal("Client information not provided"))
+        } = update_request
+            .file_info
+            .expect("File information not provided");
+        let ClientInfo { uid } = update_request
+            .client
+            .expect("Client information not provided");
+
+        match self.records.get_file_addresses(&file_path, uid).await {
+            Ok(addresses) => {
+                let upd_response = UpdateFileResponse {
+                    response: Some(GenericReply {
+                        is_success: true,
+                        message: format!(
+                            "Update request successfully processed for: {}",
+                            file_path
+                        ),
+                    }),
+                    datanode_addr: addresses,
+                };
+                Ok(Response::new(upd_response))
             }
-        } else {
-            Err(tonic::Status::internal("File information not provided"))
+            Err(err) => {
+                println!("{}", err);
+                Err(tonic::Status::internal("File does not exist"))
+            }
         }
     }
 
@@ -199,40 +201,33 @@ impl ClientProtocols for NameNodeService {
         println!("Received DeleteFileRequest");
         let delete_request = request.into_inner();
 
-        if let Some(FileInfo {
+        let FileInfo {
             file_path,
             file_size,
-        }) = delete_request.file_info
-        {
-            if let Some(ClientInfo { uid }) = delete_request.client {
-                match self.records.remove_file(&file_path, uid).await {
-                    Ok(addresses) => {
-                        let del_response = DeleteFileResponse {
-                            response: Some(GenericReply {
-                                is_success: true,
-                                message: format!(
-                                    "Delete request succesfully processed for: {}",
-                                    file_path
-                                ),
-                            }),
-                            datanode_addr: addresses,
-                        };
-                        Ok(Response::new(del_response))
-                    }
-                    Err(err) => {
-                        println!("{}", err);
-                        Err(tonic::Status::internal(
-                            "Failed to add file (no datanodes running)",
-                        ))
-                    }
-                }
-            } else {
-                // handle case where client info isn't available
-                Err(tonic::Status::internal("Client information not provided"))
+        } = delete_request
+            .file_info
+            .expect("File information not provided");
+        let ClientInfo { uid } = delete_request
+            .client
+            .expect("Client information not provided");
+
+        match self.records.remove_file(&file_path, uid).await {
+            Ok(addresses) => {
+                let del_response = DeleteFileResponse {
+                    response: Some(GenericReply {
+                        is_success: true,
+                        message: format!("Delete request succesfully processed for: {}", file_path),
+                    }),
+                    datanode_addr: addresses,
+                };
+                Ok(Response::new(del_response))
             }
-        } else {
-            // handle case where file info isn't available
-            Err(tonic::Status::internal("File information not provided"))
+            Err(err) => {
+                println!("{}", err);
+                Err(tonic::Status::internal(
+                    "Failed to add file (no datanodes running)",
+                ))
+            }
         }
     }
 

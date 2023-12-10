@@ -157,7 +157,6 @@ impl NameNodeRecords {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -202,7 +201,8 @@ mod tests {
         assert_eq!(addrs, vec![datanode]);
 
         // test removing file returns correct datanode address
-        let removal_result: Result<Vec<String>, &str> = records.remove_file(file_path, owner_uid).await;
+        let removal_result: Result<Vec<String>, &str> =
+            records.remove_file(file_path, owner_uid).await;
         assert!(removal_result.is_ok());
         let remove_addr = removal_result.unwrap();
         assert_eq!(remove_addr, vec![datanode]);
@@ -246,12 +246,14 @@ mod tests {
         // println!("{}, {}", datanode_0, datanode_1);
 
         // testing deletes
-        let removal_result: Result<Vec<String>, &str> = records.remove_file(file_path_0, owner_uid).await;
+        let removal_result: Result<Vec<String>, &str> =
+            records.remove_file(file_path_0, owner_uid).await;
         assert!(removal_result.is_ok());
         let remove_addr = removal_result.unwrap();
         assert_eq!(remove_addr, vec![datanode_0]);
-        
-        let removal_result: Result<Vec<String>, &str> = records.remove_file(file_path_1, owner_uid).await;
+
+        let removal_result: Result<Vec<String>, &str> =
+            records.remove_file(file_path_1, owner_uid).await;
         assert!(removal_result.is_ok());
         let remove_addr = removal_result.unwrap();
         assert_eq!(remove_addr, vec![datanode_1]);
