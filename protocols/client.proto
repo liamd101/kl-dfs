@@ -45,7 +45,7 @@ message SystemInfoResponse {
 
 message CreateFileResponse {
     GenericReply response = 1;
-    string datanode_address = 2;
+    string datanode_addr = 2;
 }
 
 message UpdateFileResponse {
@@ -61,25 +61,4 @@ message DeleteFileResponse {
 message ReadFileResponse {
     GenericReply response = 1;
     repeated string datanode_addr = 2;
-}
-
-
-// for read/write requests for blocks on datanodes?
-message BlockWriteRequest {
-    ClientInfo client = 1;
-    BlockInfo block_info = 2;
-    bytes block_data = 3;
-}
-
-message BlockWriteResponse {
-    bool success = 1;
-}
-
-message BlockReadRequest {
-    ClientInfo client = 1;
-    BlockInfo block_info = 2;
-}
-
-message BlockReadResponse {
-    bytes block_data = 1;
 }
