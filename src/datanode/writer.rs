@@ -34,7 +34,7 @@ impl Writer {
     pub async fn write(&mut self, datanode: SocketAddr) -> Result<(), Box<dyn Error>> {
         let mut datanode = TcpStream::connect(datanode).await?;
         let mut buf = vec![];
-        datanode.write_all(&mut buf).await?;
+        datanode.write_all(&buf).await?;
         buf.clear();
 
         Ok(())

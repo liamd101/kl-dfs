@@ -1,14 +1,15 @@
-#![allow(dead_code, unused_variables, unused_imports)]
-use crate::proto::FileInfo;
+use std::fs::File;
+use std::io::Read;
+
 use crate::proto::{
-    client_protocols_client::ClientProtocolsClient, ClientInfo, CreateFileRequest,
-    CreateFileResponse, DeleteFileRequest, DeleteFileResponse, ReadFileRequest, ReadFileResponse,
-    SystemInfoRequest, SystemInfoResponse, UpdateFileRequest, UpdateFileResponse,
+    client_protocols_client::ClientProtocolsClient,
+    data_node_protocols_client::DataNodeProtocolsClient, BlockInfo, ClientInfo, CreateBlockRequest,
+    CreateFileRequest, DeleteFileRequest, FileInfo, ReadFileRequest, SystemInfoRequest,
+    UpdateBlockRequest, UpdateFileRequest,
 };
 use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt};
 
-use tonic::server;
-use tonic::{transport::Channel, Request, Response, Status};
+use tonic::{transport::Channel, Request};
 
 pub struct Client {
     user_id: i64,
@@ -33,7 +34,6 @@ impl Client {
             .connect()
             .await?;
 
-        eprintln!("here");
         let mut client = ClientProtocolsClient::new(channel);
         // let request = tonic::Request::new(SystemInfoRequest::default());
         // let response = client.get_system_status(request).await?;
@@ -67,22 +67,85 @@ impl Client {
                         let response = client.get_system_status(request).await?;
                         println!("Response: {:?}", response);
                     }
+
                     "create" => {
                         if let Some(file_path) = iter.next() {
+                            let (file_size, file_data) = match File::open(file_path) {
+                                Ok(file) => {
+                                    let size = file.metadata().unwrap().len() as i64;
+                                    let data = file.bytes().map(|b| b.unwrap()).collect();
+                                    (size, data)
+                                }
+                                Err(_) => (0, vec![]),
+                            };
+
                             let file = FileInfo {
-                                file_path: file_path.to_string(), // so far just flat file system, no directories; this is name
-                                file_size: 4096,
+                                file_path: file_path.to_string(),
+                                file_size,
                             };
                             let request = Request::new(CreateFileRequest {
                                 client: Some(self.client_info.clone()),
-                                file_info: Some(file),
+                                file_info: Some(file.clone()),
                             });
-                            let response = client.create_file(request).await?;
-                            println!("Response: {:?}", response);
+                            let response = match client.create_file(request).await {
+                                Ok(response) => response,
+                                Err(e) => {
+                                    println!("Error: {}", e);
+                                    continue;
+                                }
+                            };
+
+                            let response = response.into_inner();
+                            let datanode_addr = response.datanode_addr;
+
+                            println!(
+                                "Writing contents of {} to datanode: {}",
+                                file_path, datanode_addr
+                            );
+                            let channel = Channel::from_shared(format!("http://{}", datanode_addr))
+                                .unwrap()
+                                .connect()
+                                .await?;
+
+                            let mut datanode_client = DataNodeProtocolsClient::new(channel);
+
+                            let block_info = BlockInfo {
+                                block_id: 0,
+                                block_size: file_size,
+                                block_data: file_data,
+                            };
+                            let request = Request::new(CreateBlockRequest {
+                                file_name: file_path.to_string(),
+                                client_info: Some(self.client_info.clone()),
+                                block_info: Some(block_info.clone()),
+                            });
+                            let response = match datanode_client.create_file(request).await {
+                                Ok(response) => response,
+                                Err(e) => {
+                                    println!("Error: {}", e);
+                                    continue;
+                                }
+                            };
+
+                            if !response.into_inner().success {
+                                println!("Failed to create file: {}", file_path);
+                            } else {
+                                println!("Successfully created file: {}", file_path);
+                            }
                         }
                     }
+
                     "update" => {
                         if let Some(file_path) = iter.next() {
+                            let (file_size, file_data) = match File::open(file_path) {
+                                Ok(file) => {
+                                    let size = file.metadata().unwrap().len() as i64;
+                                    let data = file.bytes().map(|b| b.unwrap()).collect();
+                                    (size, data)
+                                }
+                                Err(_) => (0, vec![]),
+                            };
+
                             let file = FileInfo {
                                 file_path: file_path.to_string(), // so far just flat file system, no directories; this is name
                                 file_size: 4096,
@@ -91,10 +154,54 @@ impl Client {
                                 client: Some(self.client_info.clone()),
                                 file_info: Some(file),
                             });
-                            let response = client.update_file(request).await?;
-                            println!("Response: {:?}", response);
+                            let response = match client.update_file(request).await {
+                                Ok(response) => response,
+                                Err(e) => {
+                                    println!("Error: {}", e);
+                                    continue;
+                                }
+                            };
+
+                            let response = response.into_inner();
+                            let datanode_addr = &response.datanode_addr[0];
+
+                            println!(
+                                "Writing contents of {} to datanode: {}",
+                                file_path, datanode_addr
+                            );
+                            let channel = Channel::from_shared(format!("http://{}", datanode_addr))
+                                .unwrap()
+                                .connect()
+                                .await?;
+
+                            let mut datanode_client = DataNodeProtocolsClient::new(channel);
+
+                            let block_info = BlockInfo {
+                                block_id: 0,
+                                block_size: file_size,
+                                block_data: file_data,
+                            };
+                            let request = Request::new(UpdateBlockRequest {
+                                file_name: file_path.to_string(),
+                                client_info: Some(self.client_info.clone()),
+                                block_info: Some(block_info.clone()),
+                            });
+                            let response = match datanode_client.update_file(request).await {
+                                Ok(response) => response,
+                                Err(e) => {
+                                    println!("Error: {}", e);
+                                    continue;
+                                }
+                            };
+
+                            if !response.into_inner().success {
+                                println!("Failed to update file: {}", file_path);
+                            } else {
+                                println!("Successfully updated file: {}", file_path);
+                            }
                         }
                     }
+
                     "delete" => {
                         if let Some(file_path) = iter.next() {
                             let file = FileInfo {
@@ -103,12 +210,56 @@ impl Client {
                             };
                             let request = Request::new(DeleteFileRequest {
                                 client: Some(self.client_info.clone()),
-                                file_info: Some(file),
+                                file_info: Some(file.clone()),
                             });
-                            let response = client.delete_file(request).await?;
-                            println!("Response: {:?}", response);
+                            let response = match client.delete_file(request).await {
+                                Ok(response) => response,
+                                Err(e) => {
+                                    println!("Error: {}", e);
+                                    continue;
+                                }
+                            };
+
+                            let response = response.into_inner();
+                            let datanode_addrs = response.datanode_addr;
+
+                            for datanode_addr in datanode_addrs {
+                                println!("Deleting {} from datanode: {}", file_path, datanode_addr);
+                                let channel =
+                                    Channel::from_shared(format!("http://{}", datanode_addr))
+                                        .unwrap()
+                                        .connect()
+                                        .await?;
+
+                                let mut datanode_client = DataNodeProtocolsClient::new(channel);
+
+                                let request = Request::new(DeleteFileRequest {
+                                    client: Some(self.client_info.clone()),
+                                    file_info: Some(file.clone()),
+                                });
+                                let response = match datanode_client.delete_file(request).await {
+                                    Ok(response) => response,
+                                    Err(e) => {
+                                        println!("Error: {}", e);
+                                        continue;
+                                    }
+                                };
+
+                                if !response.into_inner().success {
+                                    println!(
+                                        "Failed to delete {} from datanode: {}",
+                                        file_path, datanode_addr,
+                                    );
+                                } else {
+                                    println!(
+                                        "Successfully deleted {} from datanode: {}",
+                                        file_path, datanode_addr,
+                                    );
+                                }
+                            }
                         }
                     }
+
                     "read" => {
                         if let Some(file_path) = iter.next() {
                             let file = FileInfo {
@@ -118,13 +269,45 @@ impl Client {
 
                             let request = Request::new(ReadFileRequest {
                                 client: Some(self.client_info.clone()),
-                                file_info: Some(file),
+                                file_info: Some(file.clone()),
                             });
 
-                            let response = client.read_file(request).await?;
-                            println!("Response: {:?}", response);
+                            let response = match client.read_file(request).await {
+                                Ok(response) => response,
+                                Err(e) => {
+                                    println!("Error: {}", e);
+                                    continue;
+                                }
+                            };
+
+                            let response = response.into_inner();
+                            let datanode_addr = &response.datanode_addr[0];
+
+                            println!("Reading from datanode: {}", datanode_addr);
+                            let channel = Channel::from_shared(format!("http://{}", datanode_addr))
+                                .unwrap()
+                                .connect()
+                                .await?;
+
+                            let mut datanode_client = DataNodeProtocolsClient::new(channel);
+
+                            let request = Request::new(ReadFileRequest {
+                                client: Some(self.client_info.clone()),
+                                file_info: Some(file.clone()),
+                            });
+
+                            let response = match datanode_client.read_file(request).await {
+                                Ok(response) => response,
+                                Err(e) => {
+                                    println!("Error: {}", e);
+                                    continue;
+                                }
+                            };
+                            let data = response.into_inner().block_data;
+                            println!("File content: {}", String::from_utf8_lossy(&data));
                         }
                     }
+
                     _ => {
                         println!("Invalid Command.");
                         continue;

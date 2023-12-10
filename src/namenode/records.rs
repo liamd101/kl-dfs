@@ -1,17 +1,15 @@
 use crate::namenode::block_records::BlockRecords;
-use crate::{block, datanode};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::{atomic, Mutex, RwLock};
-use std::time::{Duration, Instant};
 // for atomic counter for id generation
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::AtomicUsize;
 use std::time::SystemTime;
 
 #[derive(Clone)]
 pub struct DataNodeInfo {
-    id: u64,
+    _id: u64,
     pub addr: String,
     pub alive: bool,
 }
@@ -24,6 +22,12 @@ pub struct NameNodeRecords {
     datanode_id_counter: AtomicUsize,
     // default_block_size: u64,
     heartbeat_records: Mutex<HashMap<String, SystemTime>>, // map from datanode ip address to time of last message
+}
+
+impl Default for NameNodeRecords {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 // TODO: heartbeat monitor - sends and checks for heartbeats and keeps datanodes updated with alive statuses
@@ -106,7 +110,7 @@ impl NameNodeRecords {
     pub async fn get_file_addresses(
         &self,
         file_path: &str,
-        owner: i64,
+        _owner: i64,
     ) -> Result<Vec<String>, &str> {
         let file_id = Self::get_file_id(file_path);
         let block_records = self.block_records.read().unwrap();
@@ -121,14 +125,16 @@ impl NameNodeRecords {
     fn add_datanode(&self, addr: &str) {
         let mut datanodes = self.datanodes.lock().unwrap();
         let mut datanode_ids = self.datanode_ids.lock().unwrap();
-        if let Some(_) = datanode_ids.get(addr) {
+
+        if datanode_ids.get(addr).is_some() {
             return;
         }
+
         let new_id = self
             .datanode_id_counter
             .fetch_add(1, atomic::Ordering::SeqCst) as u64;
         let info = DataNodeInfo {
-            id: new_id,
+            _id: new_id,
             addr: addr.to_string(),
             alive: true,
         };
@@ -156,7 +162,6 @@ impl NameNodeRecords {
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -202,7 +207,8 @@ mod tests {
         assert_eq!(addrs, vec![datanode]);
 
         // test removing file returns correct datanode address
-        let removal_result: Result<Vec<String>, &str> = records.remove_file(file_path, owner_uid).await;
+        let removal_result: Result<Vec<String>, &str> =
+            records.remove_file(file_path, owner_uid).await;
         assert!(removal_result.is_ok());
         let remove_addr = removal_result.unwrap();
         assert_eq!(remove_addr, vec![datanode]);
@@ -246,12 +252,14 @@ mod tests {
         // println!("{}, {}", datanode_0, datanode_1);
 
         // testing deletes
-        let removal_result: Result<Vec<String>, &str> = records.remove_file(file_path_0, owner_uid).await;
+        let removal_result: Result<Vec<String>, &str> =
+            records.remove_file(file_path_0, owner_uid).await;
         assert!(removal_result.is_ok());
         let remove_addr = removal_result.unwrap();
         assert_eq!(remove_addr, vec![datanode_0]);
-        
-        let removal_result: Result<Vec<String>, &str> = records.remove_file(file_path_1, owner_uid).await;
+
+        let removal_result: Result<Vec<String>, &str> =
+            records.remove_file(file_path_1, owner_uid).await;
         assert!(removal_result.is_ok());
         let remove_addr = removal_result.unwrap();
         assert_eq!(remove_addr, vec![datanode_1]);
