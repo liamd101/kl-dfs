@@ -1,11 +1,9 @@
-use crate::datanode::writer::{self, Writer};
 use crate::namenode::records::NameNodeRecords;
-use crate::proto::{client_protocols_client::ClientProtocolsClient, GenericReply};
 use crate::proto::{
     client_protocols_server::{ClientProtocols, ClientProtocolsServer},
     ClientInfo, CreateFileRequest, CreateFileResponse, DeleteFileRequest, DeleteFileResponse,
-    FileInfo, NodeStatus, ReadFileRequest, ReadFileResponse, SystemInfoRequest, SystemInfoResponse,
-    UpdateFileRequest, UpdateFileResponse,
+    FileInfo, GenericReply, NodeStatus, ReadFileRequest, ReadFileResponse, SystemInfoRequest,
+    SystemInfoResponse, UpdateFileRequest, UpdateFileResponse,
 };
 use crate::proto::{
     hearbeat_protocol_server::{HearbeatProtocol, HearbeatProtocolServer},
@@ -15,9 +13,6 @@ use std::sync::Arc;
 use std::{net::SocketAddr, str::FromStr};
 use tonic::transport::Server;
 use tonic::Response;
-
-use crate::block::Block;
-use crate::datanode::DataNodeServer;
 
 pub struct NameNodeServer {
     // datanodes: Vec<DataNode>,
@@ -120,11 +115,10 @@ impl ClientProtocols for NameNodeService {
     ) -> Result<tonic::Response<CreateFileResponse>, tonic::Status> {
         println!("Received CreateFileRequest");
         let create_request = request.into_inner();
-        let mut datanode_addr = String::new();
 
         let FileInfo {
             file_path,
-            file_size,
+            file_size: _,
         } = create_request
             .file_info
             .expect("File information not provided");
@@ -132,18 +126,15 @@ impl ClientProtocols for NameNodeService {
             .client
             .expect("Client information not provided");
 
-        match self.records.add_file(&file_path, uid).await {
-            Ok(address) => datanode_addr = address,
+        let datanode_addr = match self.records.add_file(&file_path, uid).await {
+            Ok(address) => address,
             Err(err) => {
                 println!("{}", err);
                 return Err(tonic::Status::internal(
                     "Failed to add file (no datanodes running)",
                 ));
             }
-        }
-
-        println!("datanode_address: {}", datanode_addr);
-        println!("file: {}", file_path);
+        };
 
         let response = CreateFileResponse {
             datanode_addr,
@@ -165,7 +156,7 @@ impl ClientProtocols for NameNodeService {
 
         let FileInfo {
             file_path,
-            file_size,
+            file_size: _,
         } = update_request
             .file_info
             .expect("File information not provided");
@@ -203,7 +194,7 @@ impl ClientProtocols for NameNodeService {
 
         let FileInfo {
             file_path,
-            file_size,
+            file_size: _,
         } = delete_request
             .file_info
             .expect("File information not provided");
@@ -241,7 +232,7 @@ impl ClientProtocols for NameNodeService {
 
         if let Some(FileInfo {
             file_path,
-            file_size,
+            file_size: _,
         }) = read_request.file_info
         {
             if let Some(ClientInfo { uid }) = read_request.client {

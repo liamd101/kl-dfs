@@ -35,7 +35,6 @@ impl DataNodeServer {
             SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
         let namenode_addr: SocketAddr =
             SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), namenode_port);
-
         DataNodeServer {
             datanode_addr,
             storage: Arc::new(Mutex::new(Storage::new())),
@@ -43,19 +42,21 @@ impl DataNodeServer {
         }
     }
 
-    pub async fn run_dataserver(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn run_dataserver(&self) -> Result<(), Box<dyn Error>> {
         let heartbeat_status = self.send_heartbeat_loop();
         let service_status = self.run_service();
 
         tokio::select! {
             result = heartbeat_status => {
-                if let Err(_) = result {
-                    return result;
+                match result {
+                    Ok(_) => {}, // If Ok, do nothing
+                    Err(e) => return Err(e), // If Err, return the error
                 }
             }
             result = service_status => {
-                if let Err(_) = result {
-                    return result;
+                match result {
+                    Ok(_) => {}, // If Ok, do nothing
+                    Err(e) => return Err(e), // If Err, return the error
                 }
             }
         }
@@ -68,7 +69,6 @@ impl DataNodeServer {
             .add_service(DataNodeProtocolsServer::new(self.clone()))
             .serve(self.datanode_addr)
             .await?;
-
         Ok(())
     }
 
@@ -101,14 +101,16 @@ impl DataNodeProtocols for DataNodeServer {
         let request = request.into_inner();
         let FileInfo {
             file_path,
-            file_size,
-        } = request.file_info.expect("File info not found");
+            file_size: _,
+        } = request.file_info.ok_or_else(|| {
+            tonic::Status::new(tonic::Code::InvalidArgument, "File info not found")
+        })?;
 
         let mut storage = self.storage.lock().await;
         storage
             .create(&file_path)
             .await
-            .expect("Failed to create file");
+            .map_err(|_| tonic::Status::new(tonic::Code::Internal, "Failed to create file"))?;
         drop(storage);
 
         let reply = CreateBlockResponse { success: true };
@@ -121,6 +123,12 @@ impl DataNodeProtocols for DataNodeServer {
         request: tonic::Request<UpdateFileRequest>,
     ) -> Result<tonic::Response<UpdateBlockResponse>, tonic::Status> {
         let request = request.into_inner();
+        let FileInfo {
+            file_path: _,
+            file_size: _,
+        } = request.file_info.ok_or_else(|| {
+            tonic::Status::new(tonic::Code::InvalidArgument, "File info not found")
+        })?;
 
         let reply = UpdateBlockResponse { success: true };
         Ok(tonic::Response::new(reply))
@@ -133,8 +141,10 @@ impl DataNodeProtocols for DataNodeServer {
         let request = request.into_inner();
         let FileInfo {
             file_path,
-            file_size,
-        } = request.file_info.expect("File info not found");
+            file_size: _,
+        } = request.file_info.ok_or_else(|| {
+            tonic::Status::new(tonic::Code::InvalidArgument, "File info not found")
+        })?;
 
         let mut storage = self.storage.lock().await;
         storage
@@ -154,8 +164,10 @@ impl DataNodeProtocols for DataNodeServer {
         let request = request.into_inner();
         let FileInfo {
             file_path,
-            file_size,
-        } = request.file_info.expect("File info not found");
+            file_size: _,
+        } = request.file_info.ok_or_else(|| {
+            tonic::Status::new(tonic::Code::InvalidArgument, "File info not found")
+        })?;
 
         let storage = self.storage.lock().await;
         let buf = storage.read(&file_path).await.expect("Failed to read file");

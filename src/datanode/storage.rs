@@ -1,21 +1,11 @@
 use crate::block::Block;
-use std::{error::Error, path::PathBuf};
-use tokio::{
-    fs::File,
-    io::{AsyncReadExt, AsyncWriteExt},
-};
-
-// TODO: Move to config file or somewhere else
-const DATA_DIR: &str = "./data";
+use std::error::Error;
 
 /// Block storage for a datanode
 #[derive(Clone)]
 pub struct Storage {
     /// Blocks stored in datanode
     pub blocks: Vec<Block>,
-
-    /// Directory where blocks are stored
-    data_dir: PathBuf,
 }
 
 impl Default for Storage {
@@ -26,11 +16,7 @@ impl Default for Storage {
 
 impl Storage {
     pub fn new() -> Self {
-        let data_dir = PathBuf::from(DATA_DIR);
-        Storage {
-            data_dir,
-            blocks: vec![],
-        }
+        Storage { blocks: vec![] }
     }
 
     pub async fn read(&self, name: &str) -> Result<Vec<u8>, Box<dyn Error>> {
@@ -51,7 +37,7 @@ impl Storage {
         Ok(())
     }
 
-    pub async fn update(&mut self, name: &str, mut data: Vec<u8>) -> Result<(), Box<dyn Error>> {
+    pub async fn update(&mut self, _name: &str, mut _data: Vec<u8>) -> Result<(), Box<dyn Error>> {
         Ok(())
     }
 

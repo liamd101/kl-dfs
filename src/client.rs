@@ -97,6 +97,7 @@ impl Client {
                                 file_info: Some(file.clone()),
                             });
                             let response = datanode_client.create_file(request).await?;
+
                             if !response.into_inner().success {
                                 println!("Failed to create file: {}", file_path);
                             } else {
