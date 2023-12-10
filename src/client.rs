@@ -77,17 +77,15 @@ impl Client {
                                 file_info: Some(file.clone()),
                             });
                             let response = client.create_file(request).await?;
-                            println!("Response: {:?}", response);
 
                             let response = response.into_inner();
-                            let datanode_addr = response.datanode_address;
+                            let datanode_addr = response.datanode_addr;
 
                             println!("Connecting to datanode: {}", datanode_addr);
-                            let channel =
-                                Channel::from_shared(format!("http://{}", datanode_addr))
-                                    .unwrap()
-                                    .connect()
-                                    .await?;
+                            let channel = Channel::from_shared(format!("http://{}", datanode_addr))
+                                .unwrap()
+                                .connect()
+                                .await?;
 
                             let mut datanode_client = DataNodeProtocolsClient::new(channel);
                             println!("Connected to datanode: {}", datanode_addr);
@@ -97,7 +95,6 @@ impl Client {
                                 file_info: Some(file.clone()),
                             });
                             let response = datanode_client.create_file(request).await?;
-                            println!("Response: {:?}", response);
                         }
                     }
 
@@ -138,13 +135,35 @@ impl Client {
 
                             let request = Request::new(ReadFileRequest {
                                 client: Some(self.client_info.clone()),
-                                file_info: Some(file),
+                                file_info: Some(file.clone()),
                             });
 
                             let response = client.read_file(request).await?;
                             println!("Response: {:?}", response);
+
+                            let response = response.into_inner();
+                            let datanode_addr = &response.datanode_addr[0];
+
+                            println!("Connecting to datanode: {}", datanode_addr);
+                            let channel = Channel::from_shared(format!("http://{}", datanode_addr))
+                                .unwrap()
+                                .connect()
+                                .await?;
+
+                            let mut datanode_client = DataNodeProtocolsClient::new(channel);
+                            println!("Connected to datanode: {}", datanode_addr);
+
+                            let request = Request::new(ReadFileRequest {
+                                client: Some(self.client_info.clone()),
+                                file_info: Some(file.clone()),
+                            });
+
+                            let response = datanode_client.read_file(request).await?;
+
+                            println!("Response {:?}", response);
                         }
                     }
+
                     _ => {
                         println!("Invalid Command.");
                         continue;

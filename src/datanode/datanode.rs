@@ -46,7 +46,7 @@ impl DataNodeServer {
     pub async fn run_dataserver(&self) -> Result<(), Box<dyn std::error::Error>> {
         let heartbeat_status = self.send_heartbeat_loop();
         let service_status = self.run_service();
-        
+
         tokio::select! {
             result = heartbeat_status => {
                 if let Err(_) = result {
@@ -91,8 +91,6 @@ impl DataNodeServer {
         }
     }
 }
-
-
 
 #[tonic::async_trait]
 impl DataNodeProtocols for DataNodeServer {
@@ -151,9 +149,11 @@ impl DataNodeProtocols for DataNodeServer {
 
         let storage = self.storage.lock().await;
         let buf = storage.read(&file_path).await.expect("Failed to read file");
+        drop(storage);
+        println!("{:?}", buf);
 
         let reply = ReadBlockResponse {
-            bytes_read: 0,
+            bytes_read: buf.len() as i64,
             bytes_total: 0,
             block_data: buf,
         };

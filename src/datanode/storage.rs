@@ -37,10 +37,8 @@ impl Storage {
         if !self.exists(name) {
             return Err("Block does not exist".into());
         }
-        let block_path = self.data_dir.join(name);
-        let mut file = File::open(block_path).await?;
-        let mut buffer = Vec::new();
-        file.read_to_end(&mut buffer).await?;
+        let block = self.get_block(name).unwrap();
+        let buffer = block.read();
         Ok(buffer)
     }
 
@@ -72,6 +70,10 @@ impl Storage {
         let block_path = self.data_dir.join(name);
         tokio::fs::remove_file(block_path).await?;
         Ok(())
+    }
+
+    fn get_block(&self, name: &str) -> Option<&Block> {
+        self.blocks.iter().find(|b| b.name == name)
     }
 
     fn exists(&self, name: &str) -> bool {
