@@ -53,9 +53,17 @@ impl Storage {
         Ok(())
     }
 
-    pub async fn update(&mut self, name: &str, data: Vec<u8>) -> Result<(), Box<dyn Error>> {
+    pub async fn update(
+        &mut self,
+        name: &str,
+        block_info: BlockInfo,
+    ) -> Result<(), Box<dyn Error>> {
+        if !self.exists(name) {
+            return Err("Block does not exist".into());
+        }
+
         let block = self.get_block_mut(name).unwrap();
-        block.write(data);
+        block.write(block_info);
         Ok(())
     }
 

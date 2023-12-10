@@ -1,11 +1,11 @@
 use std::fs::File;
 use std::io::Read;
 
-use crate::proto::data_node_protocols_client::DataNodeProtocolsClient;
-use crate::proto::CreateBlockRequest;
 use crate::proto::{
-    client_protocols_client::ClientProtocolsClient, BlockInfo, ClientInfo, CreateFileRequest,
-    DeleteFileRequest, FileInfo, ReadFileRequest, SystemInfoRequest, UpdateFileRequest,
+    client_protocols_client::ClientProtocolsClient,
+    data_node_protocols_client::DataNodeProtocolsClient, BlockInfo, ClientInfo, CreateBlockRequest,
+    CreateFileRequest, DeleteFileRequest, FileInfo, ReadFileRequest, SystemInfoRequest,
+    UpdateBlockRequest, UpdateFileRequest,
 };
 use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt};
 
@@ -125,6 +125,15 @@ impl Client {
 
                     "update" => {
                         if let Some(file_path) = iter.next() {
+                            let (file_size, file_data) = match File::open(file_path) {
+                                Ok(file) => {
+                                    let size = file.metadata().unwrap().len() as i64;
+                                    let data = file.bytes().map(|b| b.unwrap()).collect();
+                                    (size, data)
+                                }
+                                Err(_) => (0, vec![]),
+                            };
+
                             let file = FileInfo {
                                 file_path: file_path.to_string(), // so far just flat file system, no directories; this is name
                                 file_size: 4096,
@@ -135,6 +144,38 @@ impl Client {
                             });
                             let response = client.update_file(request).await?;
                             println!("Response: {:?}", response);
+
+                            let response = response.into_inner();
+                            let datanode_addr = &response.datanode_addr[0];
+
+                            println!(
+                                "Writing contents of {} to datanode: {}",
+                                file_path, datanode_addr
+                            );
+                            let channel = Channel::from_shared(format!("http://{}", datanode_addr))
+                                .unwrap()
+                                .connect()
+                                .await?;
+
+                            let mut datanode_client = DataNodeProtocolsClient::new(channel);
+
+                            let block_info = BlockInfo {
+                                block_id: 0,
+                                block_size: file_size,
+                                block_data: file_data,
+                            };
+                            let request = Request::new(UpdateBlockRequest {
+                                file_name: file_path.to_string(),
+                                client_info: Some(self.client_info.clone()),
+                                block_info: Some(block_info.clone()),
+                            });
+                            let response = datanode_client.update_file(request).await?;
+
+                            if !response.into_inner().success {
+                                println!("Failed to update file: {}", file_path);
+                            } else {
+                                println!("Successfully updated file: {}", file_path);
+                            }
                         }
                     }
 

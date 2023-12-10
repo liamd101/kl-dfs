@@ -9,7 +9,7 @@ use crate::proto::data_node_protocols_server::{DataNodeProtocols, DataNodeProtoc
 use crate::proto::{
     hearbeat_protocol_client::HearbeatProtocolClient, CreateBlockRequest, CreateBlockResponse,
     DeleteBlockResponse, DeleteFileRequest, FileInfo, Heartbeat, ReadBlockResponse,
-    ReadFileRequest, UpdateBlockResponse, UpdateFileRequest,
+    ReadFileRequest, UpdateBlockRequest, UpdateBlockResponse,
 };
 
 use crate::datanode::storage::Storage;
@@ -102,7 +102,6 @@ impl DataNodeProtocols for DataNodeServer {
         let block_info = request.block_info.ok_or_else(|| {
             tonic::Status::new(tonic::Code::InvalidArgument, "Block_info not found")
         })?;
-
         let file_path = request.file_name;
 
         let mut storage = self.storage.lock().await;
@@ -118,15 +117,19 @@ impl DataNodeProtocols for DataNodeServer {
 
     async fn update_file(
         &self,
-        request: tonic::Request<UpdateFileRequest>,
+        request: tonic::Request<UpdateBlockRequest>,
     ) -> Result<tonic::Response<UpdateBlockResponse>, tonic::Status> {
         let request = request.into_inner();
-        let FileInfo {
-            file_path: _,
-            file_size: _,
-        } = request.file_info.ok_or_else(|| {
-            tonic::Status::new(tonic::Code::InvalidArgument, "File info not found")
+        let block_info = request.block_info.ok_or_else(|| {
+            tonic::Status::new(tonic::Code::InvalidArgument, "Block_info not found")
         })?;
+        let file_path = request.file_name;
+
+        let mut storage = self.storage.lock().await;
+        storage
+            .update(&file_path, block_info)
+            .await
+            .map_err(|_| tonic::Status::new(tonic::Code::Internal, "Failed to update file"))?;
 
         let reply = UpdateBlockResponse { success: true };
         Ok(tonic::Response::new(reply))

@@ -7,14 +7,20 @@ package network_comms;
 
 service DataNodeProtocols {
     rpc CreateFile(CreateBlockRequest) returns (CreateBlockResponse);
-    rpc UpdateFile(UpdateFileRequest) returns (UpdateBlockResponse);
+    rpc UpdateFile(UpdateBlockRequest) returns (UpdateBlockResponse);
     rpc DeleteFile(DeleteFileRequest) returns (DeleteBlockResponse);
     rpc ReadFile(ReadFileRequest) returns (ReadBlockResponse);
 }
 
 message CreateBlockRequest {
-    ClientInfo client_info = 1;
-    string file_name = 2;
+    string file_name = 1;
+    ClientInfo client_info = 2;
+    BlockInfo block_info = 3;
+}
+
+message UpdateBlockRequest {
+    string file_name = 1;
+    ClientInfo client_info = 2;
     BlockInfo block_info = 3;
 }
 
