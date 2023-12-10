@@ -7,7 +7,7 @@ use tokio::time::interval;
 
 use crate::proto::data_node_protocols_server::{DataNodeProtocols, DataNodeProtocolsServer};
 use crate::proto::{
-    hearbeat_protocol_client::HearbeatProtocolClient, CreateBlockResponse, CreateFileRequest,
+    hearbeat_protocol_client::HearbeatProtocolClient, CreateBlockRequest, CreateBlockResponse,
     DeleteBlockResponse, DeleteFileRequest, FileInfo, Heartbeat, ReadBlockResponse,
     ReadFileRequest, UpdateBlockResponse, UpdateFileRequest,
 };
@@ -74,7 +74,7 @@ impl DataNodeServer {
 
     pub async fn send_heartbeat_loop(&self) -> Result<(), Box<dyn Error>> {
         let mut interval = interval(Duration::from_secs(5));
-        let channel = Channel::from_shared(format!("http://{}", self.namenode_addr.to_string()))
+        let channel = Channel::from_shared(format!("http://{}", self.namenode_addr))
             .unwrap()
             .connect()
             .await?;
@@ -96,19 +96,18 @@ impl DataNodeServer {
 impl DataNodeProtocols for DataNodeServer {
     async fn create_file(
         &self,
-        request: tonic::Request<CreateFileRequest>,
+        request: tonic::Request<CreateBlockRequest>,
     ) -> Result<tonic::Response<CreateBlockResponse>, tonic::Status> {
         let request = request.into_inner();
-        let FileInfo {
-            file_path,
-            file_size: _,
-        } = request.file_info.ok_or_else(|| {
-            tonic::Status::new(tonic::Code::InvalidArgument, "File info not found")
+        let block_info = request.block_info.ok_or_else(|| {
+            tonic::Status::new(tonic::Code::InvalidArgument, "Block_info not found")
         })?;
+
+        let file_path = request.file_name;
 
         let mut storage = self.storage.lock().await;
         storage
-            .create(&file_path)
+            .create(&file_path, block_info)
             .await
             .map_err(|_| tonic::Status::new(tonic::Code::Internal, "Failed to create file"))?;
         drop(storage);

@@ -1,4 +1,7 @@
+use tokio::io::AsyncWriteExt;
+
 use crate::block::Block;
+use crate::proto::BlockInfo;
 use std::error::Error;
 
 /// Block storage for a datanode
@@ -28,11 +31,24 @@ impl Storage {
         Ok(buffer)
     }
 
-    pub async fn create(&mut self, name: &str) -> Result<(), Box<dyn Error>> {
+    pub async fn create(
+        &mut self,
+        name: &str,
+        block_info: BlockInfo,
+    ) -> Result<(), Box<dyn Error>> {
         if self.exists(name) {
             return Err("Block already exists".into());
         }
-        let block = Block::new(name.to_string(), vec![]);
+
+        let data_to_write = if block_info.block_data.len() > block_info.block_size as usize {
+            &block_info.block_data[..block_info.block_size as usize]
+        } else {
+            &block_info.block_data
+        };
+
+        let mut data = Vec::<u8>::with_capacity(block_info.block_size as usize);
+        data.extend_from_slice(data_to_write);
+        let block = Block::new(name.to_string(), data);
         self.blocks.push(block);
         Ok(())
     }

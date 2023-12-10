@@ -18,11 +18,10 @@ message FileInfo {
 }
 
 message BlockInfo {
-    int64 block_id = 1;
-    int64 datanode_id = 2;
-    // Add more block info
+    int64 block_size = 1;
+    int64 block_id = 2;
+    bytes block_data = 3;
 }
-
 
 message FileRequest {
     ClientInfo client = 1;

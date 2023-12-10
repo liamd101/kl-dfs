@@ -6,10 +6,16 @@ import "client.proto";
 package network_comms;
 
 service DataNodeProtocols {
-    rpc CreateFile(CreateFileRequest) returns (CreateBlockResponse);
+    rpc CreateFile(CreateBlockRequest) returns (CreateBlockResponse);
     rpc UpdateFile(UpdateFileRequest) returns (UpdateBlockResponse);
     rpc DeleteFile(DeleteFileRequest) returns (DeleteBlockResponse);
     rpc ReadFile(ReadFileRequest) returns (ReadBlockResponse);
+}
+
+message CreateBlockRequest {
+    ClientInfo client_info = 1;
+    string file_name = 2;
+    BlockInfo block_info = 3;
 }
 
 message CreateBlockResponse {

@@ -1,14 +1,15 @@
-#![allow(dead_code, unused_variables, unused_imports)]
+use std::fs::File;
+use std::io::Read;
+
 use crate::proto::data_node_protocols_client::DataNodeProtocolsClient;
+use crate::proto::CreateBlockRequest;
 use crate::proto::{
-    client_protocols_client::ClientProtocolsClient, ClientInfo, CreateFileRequest,
-    CreateFileResponse, DeleteFileRequest, DeleteFileResponse, FileInfo, ReadFileRequest,
-    ReadFileResponse, SystemInfoRequest, SystemInfoResponse, UpdateFileRequest, UpdateFileResponse,
+    client_protocols_client::ClientProtocolsClient, BlockInfo, ClientInfo, CreateFileRequest,
+    DeleteFileRequest, FileInfo, ReadFileRequest, SystemInfoRequest, UpdateFileRequest,
 };
 use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt};
 
-use tonic::server;
-use tonic::{transport::Channel, Request, Response, Status};
+use tonic::{transport::Channel, Request};
 
 pub struct Client {
     user_id: i64,
@@ -66,11 +67,21 @@ impl Client {
                         let response = client.get_system_status(request).await?;
                         println!("Response: {:?}", response);
                     }
+
                     "create" => {
                         if let Some(file_path) = iter.next() {
+                            let (file_size, file_data) = match File::open(file_path) {
+                                Ok(file) => {
+                                    let size = file.metadata().unwrap().len() as i64;
+                                    let data = file.bytes().map(|b| b.unwrap()).collect();
+                                    (size, data)
+                                }
+                                Err(_) => (0, vec![]),
+                            };
+
                             let file = FileInfo {
-                                file_path: file_path.to_string(), // so far just flat file system, no directories; this is name
-                                file_size: 4096,
+                                file_path: file_path.to_string(),
+                                file_size,
                             };
                             let request = Request::new(CreateFileRequest {
                                 client: Some(self.client_info.clone()),
@@ -92,9 +103,15 @@ impl Client {
 
                             let mut datanode_client = DataNodeProtocolsClient::new(channel);
 
-                            let request = Request::new(CreateFileRequest {
-                                client: Some(self.client_info.clone()),
-                                file_info: Some(file.clone()),
+                            let block_info = BlockInfo {
+                                block_id: 0,
+                                block_size: file_size,
+                                block_data: file_data,
+                            };
+                            let request = Request::new(CreateBlockRequest {
+                                file_name: file_path.to_string(),
+                                client_info: Some(self.client_info.clone()),
+                                block_info: Some(block_info.clone()),
                             });
                             let response = datanode_client.create_file(request).await?;
 
