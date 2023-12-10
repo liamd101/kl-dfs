@@ -1,4 +1,5 @@
 use crate::namenode::records::NameNodeRecords;
+use crate::proto::NodeList;
 use crate::proto::{
     client_protocols_server::{ClientProtocols, ClientProtocolsServer},
     ClientInfo, CreateFileRequest, CreateFileResponse, DeleteFileRequest, DeleteFileResponse,
@@ -69,6 +70,14 @@ impl NameNodeService {
     }
 }
 
+impl Into<NodeList> for Vec<String> {
+    fn into(self) -> NodeList {
+        NodeList {
+            nodes: self.into_iter().collect(),
+        }
+    }
+}
+
 #[tonic::async_trait]
 impl ClientProtocols for NameNodeService {
     async fn get_system_status(
@@ -115,19 +124,15 @@ impl ClientProtocols for NameNodeService {
     ) -> Result<tonic::Response<CreateFileResponse>, tonic::Status> {
         println!("Received CreateFileRequest");
         let create_request = request.into_inner();
-
         let FileInfo {
             file_path,
-            file_size: _,
+            file_size,
         } = create_request
             .file_info
             .expect("File information not provided");
-        let ClientInfo { uid } = create_request
-            .client
-            .expect("Client information not provided");
 
-        let datanode_addr = match self.records.add_file(&file_path, uid).await {
-            Ok(address) => address,
+        let datanode_addr = match self.records.add_file(&file_path, file_size as usize).await {
+            Ok(addresses) => addresses,
             Err(err) => {
                 println!("{}", err);
                 return Err(tonic::Status::internal(
@@ -137,7 +142,7 @@ impl ClientProtocols for NameNodeService {
         };
 
         let response = CreateFileResponse {
-            datanode_addr,
+            datanode_addrs: datanode_addr.into_iter().map(|addr| addr.into()).collect(),
             response: Some(GenericReply {
                 is_success: true,
                 message: format!("Create request successfully processed for: {}", file_path),

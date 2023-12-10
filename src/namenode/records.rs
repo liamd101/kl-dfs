@@ -3,9 +3,12 @@ use std::collections::HashMap;
 use std::sync::{atomic, Mutex, RwLock};
 // for atomic counter for id generation
 use std::collections::hash_map::DefaultHasher;
+use std::error::Error;
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::AtomicUsize;
 use std::time::SystemTime;
+
+const DEFAULT_BLOCK_SIZE: u64 = 4096;
 
 #[derive(Clone)]
 pub struct DataNodeInfo {
@@ -72,38 +75,59 @@ impl NameNodeRecords {
         datanodes.get(&datanode_id).cloned()
     }
 
-    // Adds the new file block to block_records
-    pub async fn add_file(&self, file_path: &str, _owner: i64) -> Result<String, &str> {
-        let file_id = Self::get_file_id(file_path);
-        let mut block_records = self.block_records.write().unwrap();
-        match block_records.add_block_to_records(file_id) {
-            Ok(()) => {
-                // get the datanode from file_id and return
-                match self.get_datanode_from_blockid(file_id) {
-                    Some(node) => {
-                        match block_records.add_block_replicate(&file_id, node.addr.clone()) {
-                            Ok(()) => Ok(node.addr),
-                            Err(_err) => Err("Block Not in Records"),
-                        }
-                    }
-                    None => {
-                        println!("Datanode not found for file id: {}", file_id);
-                        Err("No Datanodes Running")
-                    }
-                }
-            }
-            Err(_err) => Err("Block Already exists"),
+    /// Adds a file to the system, and returns the addresses of the datanodes its chunks live on
+    /// The index is the index of the block in the file
+    /// i.e. the String at index 0 is the address of the datanode that the first block lives on
+    pub async fn add_file(
+        &self,
+        file_path: &str,
+        file_size: usize,
+    ) -> Result<Vec<Vec<String>>, Box<dyn Error>> {
+        let num_blocks = file_size / DEFAULT_BLOCK_SIZE as usize;
+        let mut addrs = Vec::<Vec<String>>::with_capacity(num_blocks);
+
+        for i in 0..num_blocks {
+            let block_path = format!("{}_{}", file_path, i);
+            let addr = self.add_block(block_path).await?;
+            addrs.push(addr);
         }
+
+        Ok(addrs)
+    }
+
+    // Adds the new file block to block_records
+    pub async fn add_block(&self, block_path: String) -> Result<Vec<String>, Box<dyn Error>> {
+        let file_id = Self::get_file_id(&block_path);
+        let datanode = match self.get_datanode_from_blockid(file_id) {
+            Some(node) => node,
+            None => {
+                return Err("No Datanodes Running".into());
+            }
+        };
+
+        let mut block_records = self.block_records.write()
+            .map_err(|e| e.to_string())?;
+        let datanodes = block_records.add_block_to_records(file_id, datanode.addr)?;
+        Ok(datanodes)
+
+        // // get the datanode from file_id and return
+        // match self.get_datanode_from_blockid(file_id) {
+        //     Some(node) => match block_records.add_block_replicate(&file_id, node.addr.clone()) {
+        //         Ok(()) => Ok(node.addr),
+        //         Err(_err) => Err("Block Not in Records"),
+        //     },
+        //     None => {
+        //         println!("Datanode not found for file id: {}", file_id);
+        //         Err("No Datanodes Running")
+        //     }
+        // }
     }
 
     // Removes a file block from block_records, amd returns the datanode addresses it lives on
     pub async fn remove_file(&self, file_path: &str, _owner: i64) -> Result<Vec<String>, &str> {
         let file_id = Self::get_file_id(file_path);
         let mut block_records = self.block_records.write().unwrap();
-        match block_records.remove_block_from_records(&file_id) {
-            Ok(ip_addresses) => Ok(ip_addresses),
-            Err(_err) => Err("Block Already exists"),
-        }
+        block_records.remove_block_from_records(&file_id).ok_or("Block does not exist")
     }
 
     // returns a vector of datanode addresses that the file lives on
@@ -117,7 +141,7 @@ impl NameNodeRecords {
 
         match block_records.get_block_datanodes(&file_id) {
             Ok(datanodes) => Ok(datanodes),
-            Err(_err) => Err("Block Not in Records"),
+            Err(_) => Err("Block Not in Records"),
         }
     }
 
@@ -242,11 +266,11 @@ mod tests {
         let datanode_1 = result_1.unwrap();
 
         // test reading files
-        let read_result = records.get_file_addresses(file_path_0, owner_uid).await;
+        let read_result = records.get_file_addresses(file_path_0, owner_uid as i64).await;
         assert!(read_result.is_ok());
         assert_eq!(read_result.unwrap(), vec![datanode_0.clone()]);
 
-        let read_result_1 = records.get_file_addresses(file_path_1, owner_uid).await;
+        let read_result_1 = records.get_file_addresses(file_path_1, owner_uid as i64).await;
         assert!(read_result_1.is_ok());
         assert_eq!(read_result_1.unwrap(), vec![datanode_1.clone()]);
         // println!("{}, {}", datanode_0, datanode_1);
