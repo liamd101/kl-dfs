@@ -4,6 +4,7 @@ package network_comms;
 
 message GenericReply {
     bool is_success = 1;
+    string message = 2;
 }
 
 message ClientInfo {
@@ -39,6 +40,6 @@ message BlockData {
 }
 
 message NodeStatus {
-    int64 node_id = 1;
+    string node_address = 1;
     bool is_online = 2;
 }
