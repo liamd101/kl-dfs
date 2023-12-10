@@ -98,8 +98,6 @@ impl DataNodeProtocols for DataNodeServer {
         &self,
         request: tonic::Request<CreateFileRequest>,
     ) -> Result<tonic::Response<CreateBlockResponse>, tonic::Status> {
-        println!("Entered create_file");
-
         let request = request.into_inner();
         let FileInfo {
             file_path,
@@ -111,6 +109,7 @@ impl DataNodeProtocols for DataNodeServer {
             .create(&file_path)
             .await
             .expect("Failed to create file");
+        drop(storage);
 
         let reply = CreateBlockResponse { success: true };
 
@@ -132,6 +131,17 @@ impl DataNodeProtocols for DataNodeServer {
         request: tonic::Request<DeleteFileRequest>,
     ) -> Result<tonic::Response<DeleteBlockResponse>, tonic::Status> {
         let request = request.into_inner();
+        let FileInfo {
+            file_path,
+            file_size,
+        } = request.file_info.expect("File info not found");
+
+        let mut storage = self.storage.lock().await;
+        storage
+            .delete(&file_path)
+            .await
+            .expect("Failed to delete file");
+        drop(storage);
 
         let reply = DeleteBlockResponse { success: true };
         Ok(tonic::Response::new(reply))
@@ -150,7 +160,6 @@ impl DataNodeProtocols for DataNodeServer {
         let storage = self.storage.lock().await;
         let buf = storage.read(&file_path).await.expect("Failed to read file");
         drop(storage);
-        println!("{:?}", buf);
 
         let reply = ReadBlockResponse {
             bytes_read: buf.len() as i64,

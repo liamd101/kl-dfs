@@ -46,29 +46,17 @@ impl Storage {
         if self.exists(name) {
             return Err("Block already exists".into());
         }
-        println!("Creating block: {}", name);
         let block = Block::new(name.to_string(), vec![]);
         self.blocks.push(block);
         Ok(())
     }
 
     pub async fn update(&mut self, name: &str, mut data: Vec<u8>) -> Result<(), Box<dyn Error>> {
-        let blockpath = self.data_dir.join(name);
-        let mut file = if self.exists(name) {
-            File::open(blockpath).await?
-        } else {
-            File::create(blockpath).await?
-        };
-        file.write_all(&mut data).await?;
         Ok(())
     }
 
     pub async fn delete(&mut self, name: &str) -> Result<(), Box<dyn Error>> {
-        if !self.exists(name) {
-            return Ok(());
-        }
-        let block_path = self.data_dir.join(name);
-        tokio::fs::remove_file(block_path).await?;
+        self.blocks.retain(|b| b.name != name);
         Ok(())
     }
 

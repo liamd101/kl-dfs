@@ -112,6 +112,7 @@ impl Client {
                             println!("Response: {:?}", response);
                         }
                     }
+
                     "delete" => {
                         if let Some(file_path) = iter.next() {
                             let file = FileInfo {
@@ -120,12 +121,46 @@ impl Client {
                             };
                             let request = Request::new(DeleteFileRequest {
                                 client: Some(self.client_info.clone()),
-                                file_info: Some(file),
+                                file_info: Some(file.clone()),
                             });
                             let response = client.delete_file(request).await?;
                             println!("Response: {:?}", response);
+
+                            let response = response.into_inner();
+                            let datanode_addrs = response.datanode_addr;
+
+                            for datanode_addr in datanode_addrs {
+                                println!("Connecting to datanode: {}", datanode_addr);
+                                let channel =
+                                    Channel::from_shared(format!("http://{}", datanode_addr))
+                                        .unwrap()
+                                        .connect()
+                                        .await?;
+
+                                let mut datanode_client = DataNodeProtocolsClient::new(channel);
+                                println!("Connected to datanode: {}", datanode_addr);
+
+                                let request = Request::new(DeleteFileRequest {
+                                    client: Some(self.client_info.clone()),
+                                    file_info: Some(file.clone()),
+                                });
+                                let response = datanode_client.delete_file(request).await?;
+
+                                if !response.into_inner().success {
+                                    println!(
+                                        "Failed to delete file from datanode: {}",
+                                        datanode_addr
+                                    );
+                                } else {
+                                    println!(
+                                        "Successfully deleted file from datanode: {}",
+                                        datanode_addr
+                                    );
+                                }
+                            }
                         }
                     }
+
                     "read" => {
                         if let Some(file_path) = iter.next() {
                             let file = FileInfo {
