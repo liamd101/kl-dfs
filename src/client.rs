@@ -87,7 +87,13 @@ impl Client {
                                 client: Some(self.client_info.clone()),
                                 file_info: Some(file.clone()),
                             });
-                            let response = client.create_file(request).await?;
+                            let response = match client.create_file(request).await {
+                                Ok(response) => response,
+                                Err(e) => {
+                                    println!("Error: {}", e);
+                                    continue;
+                                }
+                            };
 
                             let response = response.into_inner();
                             let datanode_addr = response.datanode_addr;
@@ -113,7 +119,13 @@ impl Client {
                                 client_info: Some(self.client_info.clone()),
                                 block_info: Some(block_info.clone()),
                             });
-                            let response = datanode_client.create_file(request).await?;
+                            let response = match datanode_client.create_file(request).await {
+                                Ok(response) => response,
+                                Err(e) => {
+                                    println!("Error: {}", e);
+                                    continue;
+                                }
+                            };
 
                             if !response.into_inner().success {
                                 println!("Failed to create file: {}", file_path);
@@ -142,8 +154,13 @@ impl Client {
                                 client: Some(self.client_info.clone()),
                                 file_info: Some(file),
                             });
-                            let response = client.update_file(request).await?;
-                            println!("Response: {:?}", response);
+                            let response = match client.update_file(request).await {
+                                Ok(response) => response,
+                                Err(e) => {
+                                    println!("Error: {}", e);
+                                    continue;
+                                }
+                            };
 
                             let response = response.into_inner();
                             let datanode_addr = &response.datanode_addr[0];
@@ -169,7 +186,13 @@ impl Client {
                                 client_info: Some(self.client_info.clone()),
                                 block_info: Some(block_info.clone()),
                             });
-                            let response = datanode_client.update_file(request).await?;
+                            let response = match datanode_client.update_file(request).await {
+                                Ok(response) => response,
+                                Err(e) => {
+                                    println!("Error: {}", e);
+                                    continue;
+                                }
+                            };
 
                             if !response.into_inner().success {
                                 println!("Failed to update file: {}", file_path);
@@ -189,7 +212,13 @@ impl Client {
                                 client: Some(self.client_info.clone()),
                                 file_info: Some(file.clone()),
                             });
-                            let response = client.delete_file(request).await?;
+                            let response = match client.delete_file(request).await {
+                                Ok(response) => response,
+                                Err(e) => {
+                                    println!("Error: {}", e);
+                                    continue;
+                                }
+                            };
 
                             let response = response.into_inner();
                             let datanode_addrs = response.datanode_addr;
@@ -208,7 +237,13 @@ impl Client {
                                     client: Some(self.client_info.clone()),
                                     file_info: Some(file.clone()),
                                 });
-                                let response = datanode_client.delete_file(request).await?;
+                                let response = match datanode_client.delete_file(request).await {
+                                    Ok(response) => response,
+                                    Err(e) => {
+                                        println!("Error: {}", e);
+                                        continue;
+                                    }
+                                };
 
                                 if !response.into_inner().success {
                                     println!(
@@ -237,7 +272,13 @@ impl Client {
                                 file_info: Some(file.clone()),
                             });
 
-                            let response = client.read_file(request).await?;
+                            let response = match client.read_file(request).await {
+                                Ok(response) => response,
+                                Err(e) => {
+                                    println!("Error: {}", e);
+                                    continue;
+                                }
+                            };
 
                             let response = response.into_inner();
                             let datanode_addr = &response.datanode_addr[0];
@@ -255,7 +296,13 @@ impl Client {
                                 file_info: Some(file.clone()),
                             });
 
-                            let response = datanode_client.read_file(request).await?;
+                            let response = match datanode_client.read_file(request).await {
+                                Ok(response) => response,
+                                Err(e) => {
+                                    println!("Error: {}", e);
+                                    continue;
+                                }
+                            };
                             let data = response.into_inner().block_data;
                             println!("File content: {}", String::from_utf8_lossy(&data));
                         }
