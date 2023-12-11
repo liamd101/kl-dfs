@@ -3,8 +3,8 @@ use crate::proto::{
     client_protocols_server::{ClientProtocols, ClientProtocolsServer},
     hearbeat_protocol_server::{HearbeatProtocol, HearbeatProtocolServer},
     CreateFileRequest, CreateFileResponse, DeleteFileRequest, DeleteFileResponse, FileInfo,
-    GenericReply, Heartbeat, NodeStatus, ReadFileRequest, ReadFileResponse, SystemInfoRequest,
-    SystemInfoResponse, UpdateFileRequest, UpdateFileResponse, NodeList
+    GenericReply, Heartbeat, NodeList, NodeStatus, ReadFileRequest, ReadFileResponse,
+    SystemInfoRequest, SystemInfoResponse, UpdateFileRequest, UpdateFileResponse,
 };
 
 use std::net::SocketAddr;

@@ -116,9 +116,7 @@ impl Client {
                     "read" => {
                         if let Some(file_path) = iter.next() {
                             match self.handle_read(file_path).await {
-                                Ok(_) => {
-
-                                }
+                                Ok(_) => {}
                                 Err(e) => {
                                     println!("Error: {}", e);
                                     continue;

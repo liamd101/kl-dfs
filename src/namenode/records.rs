@@ -39,7 +39,7 @@ pub struct NameNodeRecords {
 
     /// map from file path to block ids
     file_records: Mutex<HashMap<String, usize>>,
-    
+
     /// Number of replicas to store for each block
     replication_count: usize,
 }
