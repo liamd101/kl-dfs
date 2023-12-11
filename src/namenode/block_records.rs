@@ -1,9 +1,12 @@
 // stores which files/blocks are on which datanodes
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+
+pub struct BlockMetadata {
+    datanodes: HashSet<String>, // set of datanode IP addresses that block lives on
+}
 
 pub struct BlockRecords {
-    /// Mapping from block id to datanode addrs
-    block_mappings: HashMap<u64, Vec<String>>,
+    block_mappings: HashMap<u64, BlockMetadata>,
 }
 
 impl Default for BlockRecords {
@@ -22,26 +25,28 @@ impl BlockRecords {
     // replaces block if it already exists
     // based on the block_id (which is a hash), determines which datanode(s) to store on
     // returns the IP address of a datanode to write to
-    pub fn add_block_to_records(
-        &mut self,
-        block_id: u64,
-        datanode_addrs: Vec<String>,
-    ) -> Result<Vec<String>, &str> {
-        match self.block_mappings.get(&block_id) {
-            Some(addrs) => Ok(addrs.clone()),
-            None => {
-                self.block_mappings.insert(block_id, datanode_addrs.clone());
-                Ok(datanode_addrs.clone())
-            }
+    pub fn add_block_to_records(&mut self, block_id: u64) -> Result<(), &str> {
+        if let Some(_existing_metadata) = self.block_mappings.get_mut(&block_id) {
+            Err("Block Already exists")
+        } else {
+            let metadata = BlockMetadata {
+                datanodes: HashSet::new(),
+            };
+            self.block_mappings.insert(block_id, metadata);
+            Ok(())
         }
     }
 
-    pub fn remove_block_from_records(&mut self, block_id: &u64) -> Option<Vec<String>> {
-        self.block_mappings.remove(block_id)
+    pub fn remove_block_from_records(&mut self, block_id: &u64) -> Result<Vec<String>, &str> {
+        if let Some(block_metadata) = self.block_mappings.remove(block_id) {
+            Ok(block_metadata.datanodes.into_iter().collect())
+        } else {
+            Err("Block does not exist")
+        }
     }
 
     // returns Block Metadata from block_id - right now is same as file_id
-    pub fn get_block_metadata(&self, block_id: &u64) -> Option<&Vec<String>> {
+    pub fn get_block_metadata(&self, block_id: &u64) -> Option<&BlockMetadata> {
         self.block_mappings.get(block_id)
     }
 
@@ -52,7 +57,7 @@ impl BlockRecords {
     ) -> Result<(), &str> {
         match self.block_mappings.get_mut(block_id) {
             Some(metadata) => {
-                metadata.push(datanode_addr.clone());
+                metadata.datanodes.insert(datanode_addr.clone());
                 Ok(())
             }
             None => Err("Block Not in Records"),
@@ -62,7 +67,7 @@ impl BlockRecords {
     // returns a list of datanodes that a block exists on
     pub fn get_block_datanodes(&self, block_id: &u64) -> Result<Vec<String>, &str> {
         match self.block_mappings.get(block_id) {
-            Some(metadata) => Ok(metadata.clone()),
+            Some(metadata) => Ok(metadata.datanodes.iter().cloned().collect()),
             None => Err("Block Not in Records"),
         }
     }

@@ -1,3 +1,5 @@
+use tokio::io::AsyncWriteExt;
+
 use crate::block::Block;
 use crate::proto::BlockInfo;
 use std::error::Error;
@@ -57,11 +59,11 @@ impl Storage {
         block_info: BlockInfo,
     ) -> Result<(), Box<dyn Error>> {
         if !self.exists(name) {
-            self.create(name, block_info).await?;
-        } else {
-            let block = self.get_block_mut(name).unwrap();
-            block.write(block_info);
+            return Err("Block does not exist".into());
         }
+
+        let block = self.get_block_mut(name).unwrap();
+        block.write(block_info);
         Ok(())
     }
 

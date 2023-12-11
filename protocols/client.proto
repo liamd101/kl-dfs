@@ -45,20 +45,20 @@ message SystemInfoResponse {
 
 message CreateFileResponse {
     GenericReply response = 1;
-    repeated NodeList datanode_addrs = 2;
+    repeated string datanode_addr = 2;
 }
 
 message UpdateFileResponse {
     GenericReply response = 1;
-    repeated NodeList datanode_addrs = 2;
+    repeated string datanode_addr = 2;
 }
 
 message DeleteFileResponse {
     GenericReply response = 1;
-    repeated NodeList datanode_addrs = 2;
+    repeated string datanode_addr = 2;
 }
 
 message ReadFileResponse {
     GenericReply response = 1;
-    repeated NodeList datanode_addrs = 2;
+    repeated string datanode_addr = 2;
 }
