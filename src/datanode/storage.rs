@@ -57,11 +57,11 @@ impl Storage {
         block_info: BlockInfo,
     ) -> Result<(), Box<dyn Error>> {
         if !self.exists(name) {
-            return Err("Block does not exist".into());
+            self.create(name, block_info).await?;
+        } else {
+            let block = self.get_block_mut(name).unwrap();
+            block.write(block_info);
         }
-
-        let block = self.get_block_mut(name).unwrap();
-        block.write(block_info);
         Ok(())
     }
 

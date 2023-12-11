@@ -8,7 +8,7 @@ use tokio::time::interval;
 use crate::proto::data_node_protocols_server::{DataNodeProtocols, DataNodeProtocolsServer};
 use crate::proto::{
     hearbeat_protocol_client::HearbeatProtocolClient, CreateBlockRequest, CreateBlockResponse,
-    DeleteBlockResponse, DeleteBlockRequest, FileInfo, Heartbeat, ReadBlockResponse,
+    DeleteBlockRequest, DeleteBlockResponse, FileInfo, Heartbeat, ReadBlockResponse,
     ReadFileRequest, UpdateBlockRequest, UpdateBlockResponse,
 };
 
@@ -124,11 +124,20 @@ impl DataNodeProtocols for DataNodeServer {
         })?;
         let file_path = request.file_name;
 
+        println!("Updating file: {}", file_path);
+
         let mut storage = self.storage.lock().await;
-        storage
-            .update(&file_path, block_info)
-            .await
-            .map_err(|_| tonic::Status::new(tonic::Code::Internal, "Failed to update file"))?;
+        if block_info.block_size == 0 {
+            storage
+                .delete(&file_path)
+                .await
+                .expect("Failed to delete file");
+        } else {
+            storage
+                .update(&file_path, block_info)
+                .await
+                .map_err(|_| tonic::Status::new(tonic::Code::Internal, "Failed to update file"))?;
+        }
 
         let reply = UpdateBlockResponse { success: true };
         Ok(tonic::Response::new(reply))
@@ -170,11 +179,11 @@ impl DataNodeProtocols for DataNodeServer {
         let buf = storage.read(&file_path).await.expect("Failed to read file");
         drop(storage);
 
-        let reply = ReadBlockResponse {
+        let response = ReadBlockResponse {
             bytes_read: buf.len() as i64,
             bytes_total: 0,
             block_data: buf,
         };
-        Ok(tonic::Response::new(reply))
+        Ok(tonic::Response::new(response))
     }
 }

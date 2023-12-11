@@ -155,14 +155,14 @@ impl ClientProtocols for NameNodeService {
 
         let FileInfo {
             file_path,
-            file_size: _,
+            file_size,
         } = update_request
             .file_info
             .expect("File information not provided");
 
         let addresses = match self
             .records
-            .get_file_addresses(&file_path)
+            .update_file(&file_path, file_size as usize)
             .await
         {
             Ok(addresses) => addresses,
@@ -196,11 +196,7 @@ impl ClientProtocols for NameNodeService {
             .file_info
             .expect("File information not provided");
 
-        let addresses = match self
-            .records
-            .remove_file(&file_path)
-            .await
-        {
+        let addresses = match self.records.remove_file(&file_path).await {
             Ok(addresses) => addresses,
             Err(err) => {
                 println!("{}", err);
@@ -230,16 +226,12 @@ impl ClientProtocols for NameNodeService {
 
         let FileInfo {
             file_path,
-            file_size,
+            file_size: _,
         } = read_request
             .file_info
             .expect("File information not provided");
 
-        let datanode_addr = match self
-            .records
-            .get_file_addresses(&file_path)
-            .await
-        {
+        let datanode_addr = match self.records.get_file_addresses(&file_path).await {
             Ok(addresses) => addresses,
             Err(err) => {
                 println!("{}", err);

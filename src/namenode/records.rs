@@ -31,7 +31,7 @@ pub struct NameNodeRecords {
     datanode_ids: Mutex<HashMap<String, u64>>,
 
     /// maps blocks to block metadata (including which datanodes a block is on)
-    block_records: RwLock<BlockRecords>, 
+    block_records: RwLock<BlockRecords>,
 
     datanode_id_counter: AtomicUsize,
     /// map from datanode ip address to time of last message
@@ -120,10 +120,41 @@ impl NameNodeRecords {
         Ok(datanodes)
     }
 
-    pub async fn remove_file(
+    pub async fn update_file(
         &self,
         file_path: &str,
+        file_size: usize,
     ) -> Result<Vec<Vec<String>>, Box<dyn Error>> {
+        let num_blocks = (file_size + (self.block_size - 1)) / self.block_size;
+        let mut addrs = Vec::<Vec<String>>::with_capacity(num_blocks);
+
+        for i in 0..num_blocks {
+            let block_path = format!("{}_{}", file_path, i);
+            let addr = self.add_block(block_path).await?;
+            addrs.push(addr);
+        }
+
+        let mut file_records = self.file_records.lock().unwrap();
+        let prev_block_count = file_records
+            .insert(file_path.to_string(), num_blocks)
+            .unwrap_or(0usize);
+        drop(file_records);
+
+        println!("Previous block count: {}", prev_block_count);
+        println!("Current block count: {}", num_blocks);
+
+        for i in num_blocks..prev_block_count {
+            let block_path = format!("{}_{}", file_path, i);
+            let addr = self
+                .remove_block(&block_path)
+                .expect("Block does not exist");
+            addrs.push(addr);
+        }
+
+        Ok(addrs)
+    }
+
+    pub async fn remove_file(&self, file_path: &str) -> Result<Vec<Vec<String>>, Box<dyn Error>> {
         let mut file_records = self.file_records.lock().unwrap();
         let num_blocks = file_records.remove(file_path).unwrap_or(0usize);
 
@@ -131,7 +162,9 @@ impl NameNodeRecords {
 
         for i in 0..num_blocks {
             let block_path = format!("{}_{}", file_path, i);
-            let addr = self.remove_block(&block_path).expect("Block does not exist");
+            let addr = self
+                .remove_block(&block_path)
+                .expect("Block does not exist");
             addrs.push(addr);
         }
 
@@ -157,7 +190,9 @@ impl NameNodeRecords {
 
         for i in 0..num_blocks {
             let block_path = format!("{}_{}", file_path, i);
-            let addr = self.get_block_addresses(block_path).expect("Block does not exist");
+            let addr = self
+                .get_block_addresses(block_path)
+                .expect("Block does not exist");
             addrs.push(addr);
         }
 

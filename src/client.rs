@@ -8,8 +8,8 @@ use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt};
 use crate::proto::{
     client_protocols_client::ClientProtocolsClient,
     data_node_protocols_client::DataNodeProtocolsClient, BlockInfo, ClientInfo, CreateBlockRequest,
-    CreateFileRequest, DeleteFileRequest, FileInfo, ReadFileRequest, SystemInfoRequest,
-    UpdateBlockRequest, UpdateFileRequest, DeleteBlockRequest,
+    CreateFileRequest, DeleteBlockRequest, DeleteFileRequest, FileInfo, ReadFileRequest,
+    SystemInfoRequest, UpdateBlockRequest, UpdateFileRequest,
 };
 
 use tonic::{transport::Channel, Request};
@@ -209,7 +209,7 @@ impl Client {
             let block_name = format!("{}_{}", file_path, block_id);
             let request = Request::new(DeleteBlockRequest {
                 client_info: Some(self.client_info.clone()),
-                block_name
+                block_name,
             });
             let response = match datanode_client.delete_file(request).await {
                 Ok(response) => response,
@@ -257,34 +257,50 @@ impl Client {
         let response = response.into_inner();
         let block_addrs = &response.datanode_addrs;
 
-        let datanode_addr = &block_addrs[0].nodes[0];
+        for (block_id, blocks) in block_addrs.into_iter().enumerate() {
+            let datanode_addr = &blocks.nodes[0];
+            println!(
+                "Updating block {} of {} to datanode: {}",
+                block_id, file_path, datanode_addr
+            );
 
-        println!(
-            "Writing contents of {} to datanode: {}",
-            file_path, datanode_addr
-        );
-        let mut datanode_client = self.create_client(datanode_addr).await?;
+            let mut datanode_client = self.create_client(datanode_addr).await?;
 
-        let block_info = BlockInfo {
-            block_id: 0,
-            block_size: file_size,
-            block_data: file_data,
-        };
-        let request = Request::new(UpdateBlockRequest {
-            file_name: file_path.to_string(),
-            client_info: Some(self.client_info.clone()),
-            block_info: Some(block_info.clone()),
-        });
-        let response = match datanode_client.update_file(request).await {
-            Ok(response) => response,
-            Err(e) => return Err(Box::new(e)),
-        };
+            let start = block_id * self.block_size;
+            let end = std::cmp::min(file_data.len(), (block_id + 1) * self.block_size);
+            let block_size: i64;
+            let slice: &[u8];
 
-        if !response.into_inner().success {
-            println!("Failed to update file: {}", file_path);
-        } else {
-            println!("Successfully updated file: {}", file_path);
+            if start >= end {
+                slice = &[0; 0];
+                block_size = 0;
+            } else {
+                slice = &file_data[start..end];
+                block_size = (end - start) as i64;
+            }
+
+            let mut block_data = Vec::<u8>::with_capacity(self.block_size);
+            let _ = block_data.write(slice).await?;
+
+            let block_info = BlockInfo {
+                block_id: block_id as i64,
+                block_size,
+                block_data,
+            };
+
+            let block_name = format!("{}_{}", file_path, block_id);
+            let request = Request::new(UpdateBlockRequest {
+                file_name: block_name,
+                client_info: Some(self.client_info.clone()),
+                block_info: Some(block_info.clone()),
+            });
+
+            let _ = match datanode_client.update_file(request).await {
+                Ok(response) => response,
+                Err(e) => return Err(Box::new(e)),
+            };
         }
+
         Ok(())
     }
 
