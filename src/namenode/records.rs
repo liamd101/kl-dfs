@@ -2,6 +2,9 @@ use crate::namenode::block_records::BlockRecords;
 use std::collections::HashMap;
 use std::sync::{atomic, Mutex, RwLock};
 // for atomic counter for id generation
+use rand::rngs::StdRng;
+use rand::seq::SliceRandom;
+use rand::{thread_rng, SeedableRng};
 use std::collections::hash_map::DefaultHasher;
 use std::error::Error;
 use std::hash::{Hash, Hasher};
@@ -61,20 +64,6 @@ impl NameNodeRecords {
         hasher.finish()
     }
 
-    // determines which datanode to store the given block id on
-    // we calculate this by: block_id % num_datanodes = datanode_id
-    fn get_datanode_from_blockid(&self, block_id: u64) -> Option<DataNodeInfo> {
-        // first have to get the number of live datanodes by finding length of datanodes: Mutex<HashMap<String, DataNodeInfo>>
-        let datanodes = self.datanodes.lock().unwrap();
-        let num_datanodes = datanodes.len() as u64;
-        if num_datanodes == 0 {
-            return None;
-        }
-
-        let datanode_id = block_id % num_datanodes;
-        datanodes.get(&datanode_id).cloned()
-    }
-
     /// Adds a file to the system, and returns the addresses of the datanodes its chunks live on
     /// The index is the index of the block in the file
     /// i.e. the String at index 0 is the address of the datanode that the first block lives on
@@ -96,34 +85,44 @@ impl NameNodeRecords {
     }
 
     // Adds the new file block to block_records
-    pub async fn add_block(&self, block_path: String) -> Result<Vec<String>, Box<dyn Error>> {
+    async fn add_block(&self, block_path: String) -> Result<Vec<String>, Box<dyn Error>> {
         let file_id = Self::get_file_id(&block_path);
-        let datanode = match self.get_datanode_from_blockid(file_id) {
-            Some(node) => node,
-            None => {
-                return Err("No Datanodes Running".into());
-            }
-        };
+        let datanodes = self.get_datanode_statuses().await;
+
+        // randomly select 3 datanodes to store the block on
+        let mut rng = StdRng::seed_from_u64(file_id);
+        let mut shuffled_datanodes = datanodes.clone();
+        shuffled_datanodes.shuffle(&mut rng);
+        let selected_datanodes = shuffled_datanodes
+            .into_iter()
+            .take(3)
+            .map(|datanode| datanode.addr)
+            .collect();
 
         let mut block_records = self.block_records.write().map_err(|e| e.to_string())?;
-        let datanodes = block_records.add_block_to_records(file_id, datanode.addr)?;
+        let datanodes = block_records.add_block_to_records(file_id, selected_datanodes)?;
         Ok(datanodes)
+    }
 
-        // // get the datanode from file_id and return
-        // match self.get_datanode_from_blockid(file_id) {
-        //     Some(node) => match block_records.add_block_replicate(&file_id, node.addr.clone()) {
-        //         Ok(()) => Ok(node.addr),
-        //         Err(_err) => Err("Block Not in Records"),
-        //     },
-        //     None => {
-        //         println!("Datanode not found for file id: {}", file_id);
-        //         Err("No Datanodes Running")
-        //     }
-        // }
+    pub async fn remove_file(
+        &self,
+        file_path: &str,
+        file_size: usize,
+    ) -> Result<Vec<Vec<String>>, Box<dyn Error>> {
+        let num_blocks = (file_size + (DEFAULT_BLOCK_SIZE - 1)) / DEFAULT_BLOCK_SIZE;
+        let mut addrs = Vec::<Vec<String>>::with_capacity(num_blocks);
+
+        for i in 0..num_blocks {
+            let block_path = format!("{}_{}", file_path, i);
+            let addr = self.remove_block(&block_path).await?;
+            addrs.push(addr);
+        }
+
+        Ok(addrs)
     }
 
     // Removes a file block from block_records, amd returns the datanode addresses it lives on
-    pub async fn remove_file(&self, file_path: &str, _owner: i64) -> Result<Vec<String>, &str> {
+    async fn remove_block(&self, file_path: &str) -> Result<Vec<String>, &str> {
         let file_id = Self::get_file_id(file_path);
         let mut block_records = self.block_records.write().unwrap();
         block_records
@@ -133,7 +132,7 @@ impl NameNodeRecords {
 
     pub async fn get_file_addresses(
         &self,
-        file_path: &String,
+        file_path: &str,
         file_size: usize,
     ) -> Result<Vec<Vec<String>>, Box<dyn Error>> {
         let num_blocks = (file_size + (DEFAULT_BLOCK_SIZE - 1)) / DEFAULT_BLOCK_SIZE;

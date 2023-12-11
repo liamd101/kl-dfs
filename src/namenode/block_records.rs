@@ -25,14 +25,13 @@ impl BlockRecords {
     pub fn add_block_to_records(
         &mut self,
         block_id: u64,
-        datanode_addr: String,
+        datanode_addrs: Vec<String>,
     ) -> Result<Vec<String>, &str> {
         match self.block_mappings.get(&block_id) {
             Some(addrs) => Ok(addrs.clone()),
             None => {
-                let metadata = vec![datanode_addr.clone()];
-                self.block_mappings.insert(block_id, metadata.clone());
-                Ok(metadata.clone())
+                self.block_mappings.insert(block_id, datanode_addrs.clone());
+                Ok(datanode_addrs.clone())
             }
         }
     }
