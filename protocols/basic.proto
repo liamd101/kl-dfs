@@ -19,19 +19,6 @@ message BlockInfo {
     bytes block_data = 3;
 }
 
-message FileRequest {
-    FileInfo file_info = 1;
-}
-
-message BlockRequest {
-     BlockInfo block_info = 1;
-}
-
-message BlockData {
-    bytes data = 1;
-    // add checksum? and actual data?
-}
-
 message NodeStatus {
     string node_address = 1;
     bool is_online = 2;

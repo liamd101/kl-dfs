@@ -9,7 +9,7 @@ use crate::proto::data_node_protocols_server::{DataNodeProtocols, DataNodeProtoc
 use crate::proto::{
     hearbeat_protocol_client::HearbeatProtocolClient, CreateBlockRequest, CreateBlockResponse,
     DeleteBlockRequest, DeleteBlockResponse, FileInfo, Heartbeat, ReadBlockResponse,
-    ReadFileRequest, UpdateBlockRequest, UpdateBlockResponse,
+    FileRequest, UpdateBlockRequest, UpdateBlockResponse,
 };
 
 use crate::datanode::storage::Storage;
@@ -165,7 +165,7 @@ impl DataNodeProtocols for DataNodeServer {
 
     async fn read_file(
         &self,
-        request: tonic::Request<ReadFileRequest>,
+        request: tonic::Request<FileRequest>,
     ) -> Result<tonic::Response<ReadBlockResponse>, tonic::Status> {
         let request = request.into_inner();
         let FileInfo {

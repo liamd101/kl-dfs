@@ -9,7 +9,7 @@ service DataNodeProtocols {
     rpc CreateFile(CreateBlockRequest) returns (CreateBlockResponse);
     rpc UpdateFile(UpdateBlockRequest) returns (UpdateBlockResponse);
     rpc DeleteFile(DeleteBlockRequest) returns (DeleteBlockResponse);
-    rpc ReadFile(ReadFileRequest) returns (ReadBlockResponse);
+    rpc ReadFile(FileRequest) returns (ReadBlockResponse);
 }
 
 message CreateBlockRequest {

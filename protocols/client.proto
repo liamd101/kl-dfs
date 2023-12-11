@@ -6,29 +6,17 @@ package network_comms;
 
 service ClientProtocols {
     rpc GetSystemStatus(SystemInfoRequest) returns (SystemInfoResponse);
-    rpc CreateFile(CreateFileRequest) returns (CreateFileResponse);
-    rpc UpdateFile(UpdateFileRequest) returns (UpdateFileResponse);
-    rpc DeleteFile(DeleteFileRequest) returns (DeleteFileResponse);
-    rpc ReadFile(ReadFileRequest) returns (ReadFileResponse);
+    rpc CreateFile(FileRequest) returns (FileResponse);
+    rpc UpdateFile(FileRequest) returns (FileResponse);
+    rpc DeleteFile(FileRequest) returns (FileResponse);
+    rpc ReadFile(FileRequest) returns (FileResponse);
 }
 
 // request for node statuses
 message SystemInfoRequest {
 }
 
-message CreateFileRequest {
-    FileInfo file_info = 1;
-}
-
-message UpdateFileRequest {
-    FileInfo file_info = 1;
-}
-
-message DeleteFileRequest {
-    FileInfo file_info = 1;
-}
-
-message ReadFileRequest {
+message FileRequest {
     FileInfo file_info = 1;
 }
 
@@ -38,22 +26,7 @@ message SystemInfoResponse {
     int64 num_datanodes = 3;
 }
 
-message CreateFileResponse {
-    GenericReply response = 1;
-    repeated NodeList datanode_addrs = 2;
-}
-
-message UpdateFileResponse {
-    GenericReply response = 1;
-    repeated NodeList datanode_addrs = 2;
-}
-
-message DeleteFileResponse {
-    GenericReply response = 1;
-    repeated NodeList datanode_addrs = 2;
-}
-
-message ReadFileResponse {
+message FileResponse {
     GenericReply response = 1;
     repeated NodeList datanode_addrs = 2;
 }

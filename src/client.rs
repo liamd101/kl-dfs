@@ -8,8 +8,7 @@ use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt};
 use crate::proto::{
     client_protocols_client::ClientProtocolsClient,
     data_node_protocols_client::DataNodeProtocolsClient, BlockInfo, CreateBlockRequest,
-    CreateFileRequest, DeleteBlockRequest, DeleteFileRequest, FileInfo, ReadFileRequest,
-    SystemInfoRequest, UpdateBlockRequest, UpdateFileRequest,
+    DeleteBlockRequest, FileInfo, FileRequest, SystemInfoRequest, UpdateBlockRequest,
 };
 
 use tonic::{transport::Channel, Request};
@@ -68,8 +67,7 @@ impl Client {
             if let Some(command) = iter.next() {
                 match command {
                     "system_checkup" => {
-                        let request = tonic::Request::new(SystemInfoRequest {
-                        });
+                        let request = tonic::Request::new(SystemInfoRequest {});
                         let response = self.namenode_client.get_system_status(request).await?;
                         println!("Response: {:?}", response);
                     }
@@ -142,7 +140,7 @@ impl Client {
             file_size: 4096,
         };
 
-        let request = Request::new(ReadFileRequest {
+        let request = Request::new(FileRequest {
             file_info: Some(file.clone()),
         });
 
@@ -167,7 +165,7 @@ impl Client {
                 file_path: block_name,
                 file_size: 0, // not used
             };
-            let request = Request::new(ReadFileRequest {
+            let request = Request::new(FileRequest {
                 file_info: Some(file_info),
             });
 
@@ -194,7 +192,7 @@ impl Client {
             file_path: file_path.to_string(), // so far just flat file system, no directories; this is name
             file_size: 4096,
         };
-        let request = Request::new(DeleteFileRequest {
+        let request = Request::new(FileRequest {
             file_info: Some(file.clone()),
         });
         let response = match self.namenode_client.delete_file(request).await {
@@ -210,9 +208,7 @@ impl Client {
             let mut datanode_client = self.create_client(datanode_addr).await?;
 
             let block_name = format!("{}_{}", file_path, block_id);
-            let request = Request::new(DeleteBlockRequest {
-                block_name,
-            });
+            let request = Request::new(DeleteBlockRequest { block_name });
             let response = match datanode_client.delete_file(request).await {
                 Ok(response) => response,
                 Err(e) => return Err(Box::new(e)),
@@ -247,7 +243,7 @@ impl Client {
             file_path: file_path.to_string(), // so far just flat file system, no directories; this is name
             file_size,
         };
-        let request = Request::new(UpdateFileRequest {
+        let request = Request::new(FileRequest {
             file_info: Some(file),
         });
         let response = match self.namenode_client.update_file(request).await {
@@ -259,10 +255,7 @@ impl Client {
         let block_addrs = &response.datanode_addrs;
 
         for (block_id, blocks) in block_addrs.into_iter().enumerate() {
-            println!(
-                "Updating block {} of {}",
-                block_id, file_path
-            );
+            println!("Updating block {} of {}", block_id, file_path);
             let datanode_addr = &blocks.nodes[0];
 
             let mut datanode_client = self.create_client(datanode_addr).await?;
@@ -318,7 +311,7 @@ impl Client {
             file_path: file_path.to_string(),
             file_size,
         };
-        let request = Request::new(CreateFileRequest {
+        let request = Request::new(FileRequest {
             file_info: Some(file.clone()),
         });
         let response = match self.namenode_client.create_file(request).await {

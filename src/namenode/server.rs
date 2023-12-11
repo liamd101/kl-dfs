@@ -2,9 +2,8 @@ use crate::namenode::records::NameNodeRecords;
 use crate::proto::{
     client_protocols_server::{ClientProtocols, ClientProtocolsServer},
     hearbeat_protocol_server::{HearbeatProtocol, HearbeatProtocolServer},
-    CreateFileRequest, CreateFileResponse, DeleteFileRequest, DeleteFileResponse, FileInfo,
-    GenericReply, Heartbeat, NodeList, NodeStatus, ReadFileRequest, ReadFileResponse,
-    SystemInfoRequest, SystemInfoResponse, UpdateFileRequest, UpdateFileResponse,
+    FileInfo, GenericReply, Heartbeat, NodeList, NodeStatus, FileRequest, FileResponse,
+    SystemInfoRequest, SystemInfoResponse,
 };
 
 use std::net::SocketAddr;
@@ -101,8 +100,8 @@ impl ClientProtocols for NameNodeService {
 
     async fn create_file(
         &self,
-        request: tonic::Request<CreateFileRequest>,
-    ) -> Result<tonic::Response<CreateFileResponse>, tonic::Status> {
+        request: tonic::Request<FileRequest>,
+    ) -> Result<tonic::Response<FileResponse>, tonic::Status> {
         println!("Received CreateFileRequest");
         let create_request = request.into_inner();
         let FileInfo {
@@ -124,7 +123,7 @@ impl ClientProtocols for NameNodeService {
 
         println!("DataNode addresses: {:?}", addresses);
 
-        let response = CreateFileResponse {
+        let response = FileResponse {
             datanode_addrs: addresses.into_iter().map(|addr| addr.into()).collect(),
             response: Some(GenericReply {
                 is_success: true,
@@ -137,8 +136,8 @@ impl ClientProtocols for NameNodeService {
     // receives an update file request, returns a list of namenode addresses containing that file
     async fn update_file(
         &self,
-        request: tonic::Request<UpdateFileRequest>,
-    ) -> std::result::Result<tonic::Response<UpdateFileResponse>, tonic::Status> {
+        request: tonic::Request<FileRequest>,
+    ) -> std::result::Result<tonic::Response<FileResponse>, tonic::Status> {
         println!("Received UpdateFileRequest");
         let update_request = request.into_inner();
 
@@ -161,7 +160,7 @@ impl ClientProtocols for NameNodeService {
             }
         };
 
-        let upd_response = UpdateFileResponse {
+        let upd_response = FileResponse {
             datanode_addrs: addresses.into_iter().map(|addr| addr.into()).collect(),
             response: Some(GenericReply {
                 is_success: true,
@@ -173,8 +172,8 @@ impl ClientProtocols for NameNodeService {
 
     async fn delete_file(
         &self,
-        request: tonic::Request<DeleteFileRequest>,
-    ) -> std::result::Result<tonic::Response<DeleteFileResponse>, tonic::Status> {
+        request: tonic::Request<FileRequest>,
+    ) -> std::result::Result<tonic::Response<FileResponse>, tonic::Status> {
         println!("Received DeleteFileRequest");
         let delete_request = request.into_inner();
 
@@ -195,7 +194,7 @@ impl ClientProtocols for NameNodeService {
 
         println!("DataNode addresses: {:?}", addresses);
 
-        let del_response = DeleteFileResponse {
+        let del_response = FileResponse {
             datanode_addrs: addresses.into_iter().map(|addr| addr.into()).collect(),
             response: Some(GenericReply {
                 is_success: true,
@@ -208,8 +207,8 @@ impl ClientProtocols for NameNodeService {
     // returns list of datanode addresses containing this file
     async fn read_file(
         &self,
-        request: tonic::Request<ReadFileRequest>,
-    ) -> std::result::Result<tonic::Response<ReadFileResponse>, tonic::Status> {
+        request: tonic::Request<FileRequest>,
+    ) -> std::result::Result<tonic::Response<FileResponse>, tonic::Status> {
         println!("Received ReadFileRequest");
         let read_request = request.into_inner();
 
@@ -232,7 +231,7 @@ impl ClientProtocols for NameNodeService {
             is_success: true,
             message: format!("Read request successfully processed for: {}", file_path),
         };
-        let read_resp = ReadFileResponse {
+        let read_resp = FileResponse {
             response: Some(reply), // why does this have to be an option?
             datanode_addrs: datanode_addr.into_iter().map(|addr| addr.into()).collect(),
         };
