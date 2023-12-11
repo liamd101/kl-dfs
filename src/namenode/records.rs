@@ -1,10 +1,14 @@
 use crate::namenode::block_records::BlockRecords;
 use std::collections::HashMap;
-use std::sync::{atomic, Mutex, RwLock};
 // for atomic counter for id generation
+use rand::rngs::StdRng;
+use rand::seq::SliceRandom;
+use rand::SeedableRng;
 use std::collections::hash_map::DefaultHasher;
+use std::error::Error;
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::AtomicUsize;
+use std::sync::{atomic, Mutex, RwLock};
 use std::time::SystemTime;
 
 #[derive(Clone)]
@@ -16,32 +20,46 @@ pub struct DataNodeInfo {
 
 // basically recordkeeper/bookkeeper
 pub struct NameNodeRecords {
+    /// max block size in bytes
+    block_size: usize,
+
+    /// maps datanode id to datanode info
     datanodes: Mutex<HashMap<u64, DataNodeInfo>>, // datanode id : datanode info
-    datanode_ids: Mutex<HashMap<String, u64>>,    // datanode ip string, datanode id
-    block_records: RwLock<BlockRecords>, // maps blocks to block metadata (including which datanodes a block is on)
+
+    /// maps datanode ip address to datanode id
+    /// ???? why is this a thing?????
+    datanode_ids: Mutex<HashMap<String, u64>>,
+
+    /// maps blocks to block metadata (including which datanodes a block is on)
+    block_records: RwLock<BlockRecords>,
+
     datanode_id_counter: AtomicUsize,
-    // default_block_size: u64,
-    heartbeat_records: Mutex<HashMap<String, SystemTime>>, // map from datanode ip address to time of last message
+    /// map from datanode ip address to time of last message
+    heartbeat_records: Mutex<HashMap<String, SystemTime>>,
+
+    /// map from file path to block ids
+    file_records: Mutex<HashMap<String, usize>>,
     replication_count: u64,
 }
 
 impl Default for NameNodeRecords {
     fn default() -> Self {
-        Self::new(3)
+        Self::new(3, 4096)
     }
 }
 
 // TODO: heartbeat monitor - sends and checks for heartbeats and keeps datanodes updated with alive statuses
 // how does it handle if we started making a file, but it wasn't actually written??
 impl NameNodeRecords {
-    pub fn new(replication_count: u64) -> Self {
+    pub fn new(replication_count: u64, block_size: usize) -> Self {
         Self {
+            block_size,
             datanodes: Mutex::new(HashMap::new()),
             datanode_ids: Mutex::new(HashMap::new()),
             block_records: RwLock::new(BlockRecords::new()),
             datanode_id_counter: AtomicUsize::new(0),
-            // default_block_size: 4096,
             heartbeat_records: Mutex::new(HashMap::new()),
+            file_records: Mutex::new(HashMap::new()),
             replication_count,
         }
     }
@@ -60,19 +78,28 @@ impl NameNodeRecords {
         hasher.finish()
     }
 
-    // determines which datanode to store the given block id on
-    // we calculate this by: block_id % num_datanodes = datanode_id
-    fn calculate_datanode_from_blockid(&self, block_id: u64) -> Option<DataNodeInfo> {
-        // first have to get the number of live datanodes by finding length of datanodes: Mutex<HashMap<String, DataNodeInfo>>
-        let datanodes = self.datanodes.lock().unwrap();
-        let num_datanodes = datanodes.len() as u64;
-        if num_datanodes == 0 {
-            return None;
+    /// Adds a file to the system, and returns the addresses of the datanodes its chunks live on
+    /// The index is the index of the block in the file
+    /// i.e. the String at index 0 is the address of the datanode that the first block lives on
+    pub async fn add_file(
+        &self,
+        file_path: &str,
+        file_size: usize,
+    ) -> Result<Vec<Vec<String>>, Box<dyn Error>> {
+        let num_blocks = (file_size + (self.block_size - 1)) / self.block_size;
+        let mut addrs = Vec::<Vec<String>>::with_capacity(num_blocks);
+
+        for i in 0..num_blocks {
+            let block_path = format!("{}_{}", file_path, i);
+            let addr = self.add_block(block_path).await?;
+            addrs.push(addr);
         }
 
-        let datanode_id = block_id % num_datanodes;
+        let mut file_records = self.file_records.lock().unwrap();
+        file_records.insert(file_path.to_string(), num_blocks);
+        drop(file_records);
 
-        datanodes.get(&datanode_id).cloned()
+        Ok(addrs)
     }
 
     // we calculate this by: block_id % num_datanodes = datanode_id. Increment to get datanodes to replicate to
@@ -99,27 +126,74 @@ impl NameNodeRecords {
     }
 
     // Adds the new file block to block_records
-    pub async fn add_file(&self, file_path: &str, _owner: i64) -> Result<String, &str> {
-        let file_id = Self::get_file_id(file_path);
-        let mut block_records = self.block_records.write().unwrap();
-        match block_records.add_block_to_records(file_id) {
-            Ok(()) => {
-                // get the datanode from file_id and return
-                match self.calculate_datanode_from_blockid(file_id) {
-                    Some(node) => {
-                        match block_records.add_block_replicate(&file_id, node.addr.clone()) {
-                            Ok(()) => Ok(node.addr),
-                            Err(_err) => Err("Block Not in Records"),
-                        }
-                    }
-                    None => {
-                        println!("Datanode not found for file id: {}", file_id);
-                        Err("No Datanodes Running")
-                    }
-                }
-            }
-            Err(_err) => Err("Block Already exists"),
+    async fn add_block(&self, block_path: String) -> Result<Vec<String>, Box<dyn Error>> {
+        let file_id = Self::get_file_id(&block_path);
+        let datanodes = self.get_datanode_statuses().await;
+
+        // randomly select 3 datanodes to store the block on
+        let mut rng = StdRng::seed_from_u64(file_id);
+        let mut shuffled_datanodes = datanodes.clone();
+        shuffled_datanodes.shuffle(&mut rng);
+        let selected_datanodes = shuffled_datanodes
+            .into_iter()
+            .take(3)
+            .map(|datanode| datanode.addr)
+            .collect();
+
+        let mut block_records = self.block_records.write().map_err(|e| e.to_string())?;
+        let datanodes = block_records.add_block_to_records(file_id, selected_datanodes)?;
+        Ok(datanodes)
+    }
+
+    pub async fn update_file(
+        &self,
+        file_path: &str,
+        file_size: usize,
+    ) -> Result<Vec<Vec<String>>, Box<dyn Error>> {
+        let num_blocks = (file_size + (self.block_size - 1)) / self.block_size;
+        let mut addrs = Vec::<Vec<String>>::with_capacity(num_blocks);
+
+        for i in 0..num_blocks {
+            let block_path = format!("{}_{}", file_path, i);
+            let addr = self.add_block(block_path).await?;
+            addrs.push(addr);
         }
+
+        let mut file_records = self.file_records.lock().unwrap();
+        let prev_block_count = file_records
+            .insert(file_path.to_string(), num_blocks)
+            .unwrap_or(0usize);
+        drop(file_records);
+
+        println!("Previous block count: {}", prev_block_count);
+        println!("Current block count: {}", num_blocks);
+
+        for i in num_blocks..prev_block_count {
+            let block_path = format!("{}_{}", file_path, i);
+            let addr = self
+                .remove_block(&block_path)
+                .expect("Block does not exist");
+            addrs.push(addr);
+        }
+
+        Ok(addrs)
+    }
+
+    pub async fn remove_file(&self, file_path: &str) -> Result<Vec<Vec<String>>, Box<dyn Error>> {
+        let mut file_records = self.file_records.lock().unwrap();
+        let num_blocks = file_records.remove(file_path).unwrap_or(0usize);
+
+        let mut addrs = Vec::<Vec<String>>::with_capacity(num_blocks);
+
+        for i in 0..num_blocks {
+            let block_path = format!("{}_{}", file_path, i);
+            let addr = self
+                .remove_block(&block_path)
+                .expect("Block does not exist");
+            addrs.push(addr);
+        }
+
+        Ok(addrs)
     }
 
     // Adds the new file block to block_records, with replicas
@@ -158,27 +232,41 @@ impl NameNodeRecords {
     }
 
     // Removes a file block from block_records, amd returns the datanode addresses it lives on
-    pub async fn remove_file(&self, file_path: &str, _owner: i64) -> Result<Vec<String>, &str> {
+    fn remove_block(&self, file_path: &str) -> Result<Vec<String>, &str> {
         let file_id = Self::get_file_id(file_path);
         let mut block_records = self.block_records.write().unwrap();
-        match block_records.remove_block_from_records(&file_id) {
-            Ok(ip_addresses) => Ok(ip_addresses),
-            Err(_err) => Err("Block Already exists"),
-        }
+        block_records
+            .remove_block_from_records(&file_id)
+            .ok_or("Block does not exist")
     }
 
-    // returns a vector of datanode addresses that the file lives on
     pub async fn get_file_addresses(
         &self,
         file_path: &str,
-        _owner: i64,
-    ) -> Result<Vec<String>, &str> {
-        let file_id = Self::get_file_id(file_path);
+    ) -> Result<Vec<Vec<String>>, Box<dyn Error>> {
+        let file_records = self.file_records.lock().unwrap();
+        let num_blocks = file_records.get(file_path).map(|&v| v).unwrap_or(0usize);
+        let mut addrs = Vec::<Vec<String>>::with_capacity(num_blocks);
+
+        for i in 0..num_blocks {
+            let block_path = format!("{}_{}", file_path, i);
+            let addr = self
+                .get_block_addresses(block_path)
+                .expect("Block does not exist");
+            addrs.push(addr);
+        }
+
+        Ok(addrs)
+    }
+
+    // returns a vector of datanode addresses that the file lives on
+    fn get_block_addresses(&self, file_path: String) -> Result<Vec<String>, &str> {
+        let file_id = Self::get_file_id(&file_path);
         let block_records = self.block_records.read().unwrap();
 
         match block_records.get_block_datanodes(&file_id) {
             Ok(datanodes) => Ok(datanodes),
-            Err(_err) => Err("Block Not in Records"),
+            Err(_) => Err("Block Not in Records"),
         }
     }
 
@@ -213,10 +301,9 @@ impl NameNodeRecords {
         // update heartbeat time record
         heartbeats.insert(address.to_string(), SystemTime::now());
 
-        println!("Current datanode heartbeats:");
-        for (addr, time) in heartbeats.iter() {
-            println!("Datanode {}: {:?}", addr, time);
-        }
+        // for (addr, time) in heartbeats.iter() {
+        //     println!("Datanode {}: {:?}", addr, time);
+        // }
     }
 }
 
@@ -226,7 +313,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_datanode() {
-        let records = NameNodeRecords::new(1);
+        let records = NameNodeRecords::new(1, 4096);
         let datanode = "127.0.0.1:5000";
 
         records.add_datanode(&datanode);
@@ -243,7 +330,7 @@ mod tests {
     // testing with one datanode in the system, replication of 1
     #[tokio::test]
     async fn test_add_read_remove_file_1() {
-        let records = NameNodeRecords::new(1);
+        let records = NameNodeRecords::new(1, 4096);
         let datanode = "127.0.0.1:5000";
         records.add_datanode(&datanode);
 
@@ -278,7 +365,7 @@ mod tests {
     // testing with multiple datanodes in the system, replication of 1
     #[tokio::test]
     async fn test_add_read_remove_file_2() {
-        let records = NameNodeRecords::new(1);
+        let records = NameNodeRecords::new(1, 4096);
         let datanode1 = "127.0.0.1:5000";
         let datanode2 = "127.0.0.1:5001";
         let datanode3 = "127.0.0.1:5002";
@@ -299,11 +386,15 @@ mod tests {
         let datanode_1 = result_1.unwrap();
 
         // test reading files
-        let read_result = records.get_file_addresses(file_path_0, owner_uid).await;
+        let read_result = records
+            .get_file_addresses(file_path_0, owner_uid as i64)
+            .await;
         assert!(read_result.is_ok());
         assert_eq!(read_result.unwrap(), vec![datanode_0.clone()]);
 
-        let read_result_1 = records.get_file_addresses(file_path_1, owner_uid).await;
+        let read_result_1 = records
+            .get_file_addresses(file_path_1, owner_uid as i64)
+            .await;
         assert!(read_result_1.is_ok());
         assert_eq!(read_result_1.unwrap(), vec![datanode_1.clone()]);
         // println!("{}, {}", datanode_0, datanode_1);
