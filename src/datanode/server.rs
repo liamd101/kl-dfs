@@ -1,5 +1,5 @@
 use std::error::Error;
-use std::net::SocketAddr;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
@@ -8,7 +8,7 @@ use tokio::time::interval;
 use crate::proto::data_node_protocols_server::{DataNodeProtocols, DataNodeProtocolsServer};
 use crate::proto::{
     hearbeat_protocol_client::HearbeatProtocolClient, CreateBlockRequest, CreateBlockResponse,
-    DeleteBlockRequest, DeleteBlockResponse, FileInfo, Heartbeat, ReadBlockResponse,
+    DeleteBlockResponse, DeleteFileRequest, FileInfo, Heartbeat, ReadBlockResponse,
     ReadFileRequest, UpdateBlockRequest, UpdateBlockResponse,
 };
 
@@ -31,8 +31,10 @@ pub struct DataNodeServer {
 
 impl DataNodeServer {
     pub fn new(port: u16, namenode_port: u16) -> Self {
-        let datanode_addr = SocketAddr::from(([127, 0, 0, 1], port));
-        let namenode_addr = SocketAddr::from(([127, 0, 0, 1], namenode_port));
+        let datanode_addr: SocketAddr =
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
+        let namenode_addr: SocketAddr =
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), namenode_port);
         DataNodeServer {
             datanode_addr,
             storage: Arc::new(Mutex::new(Storage::new())),
@@ -84,7 +86,8 @@ impl DataNodeServer {
             let request = tonic::Request::new(Heartbeat {
                 address: self.datanode_addr.to_string(),
             });
-            let _ = heartbeat_client.send_heartbeat(request).await?;
+            let response = heartbeat_client.send_heartbeat(request).await?;
+            println!("Received heartbeat response: {:?}", response);
         }
     }
 }
@@ -100,8 +103,6 @@ impl DataNodeProtocols for DataNodeServer {
             tonic::Status::new(tonic::Code::InvalidArgument, "Block_info not found")
         })?;
         let file_path = request.file_name;
-
-        println!("Creating file: {}", file_path);
 
         let mut storage = self.storage.lock().await;
         storage
@@ -124,20 +125,11 @@ impl DataNodeProtocols for DataNodeServer {
         })?;
         let file_path = request.file_name;
 
-        println!("Updating file: {}", file_path);
-
         let mut storage = self.storage.lock().await;
-        if block_info.block_size == 0 {
-            storage
-                .delete(&file_path)
-                .await
-                .expect("Failed to delete file");
-        } else {
-            storage
-                .update(&file_path, block_info)
-                .await
-                .map_err(|_| tonic::Status::new(tonic::Code::Internal, "Failed to update file"))?;
-        }
+        storage
+            .update(&file_path, block_info)
+            .await
+            .map_err(|_| tonic::Status::new(tonic::Code::Internal, "Failed to update file"))?;
 
         let reply = UpdateBlockResponse { success: true };
         Ok(tonic::Response::new(reply))
@@ -145,16 +137,19 @@ impl DataNodeProtocols for DataNodeServer {
 
     async fn delete_file(
         &self,
-        request: tonic::Request<DeleteBlockRequest>,
+        request: tonic::Request<DeleteFileRequest>,
     ) -> Result<tonic::Response<DeleteBlockResponse>, tonic::Status> {
         let request = request.into_inner();
-        let block_name = request.block_name;
-
-        println!("Deleting file: {}", block_name);
+        let FileInfo {
+            file_path,
+            file_size: _,
+        } = request.file_info.ok_or_else(|| {
+            tonic::Status::new(tonic::Code::InvalidArgument, "File info not found")
+        })?;
 
         let mut storage = self.storage.lock().await;
         storage
-            .delete(&block_name)
+            .delete(&file_path)
             .await
             .expect("Failed to delete file");
         drop(storage);
@@ -179,11 +174,11 @@ impl DataNodeProtocols for DataNodeServer {
         let buf = storage.read(&file_path).await.expect("Failed to read file");
         drop(storage);
 
-        let response = ReadBlockResponse {
+        let reply = ReadBlockResponse {
             bytes_read: buf.len() as i64,
             bytes_total: 0,
             block_data: buf,
         };
-        Ok(tonic::Response::new(response))
+        Ok(tonic::Response::new(reply))
     }
 }
