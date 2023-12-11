@@ -45,7 +45,7 @@ message SystemInfoResponse {
 
 message CreateFileResponse {
     GenericReply response = 1;
-    string datanode_addr = 2;
+    repeated string datanode_addr = 2;
 }
 
 message UpdateFileResponse {

@@ -96,41 +96,44 @@ impl Client {
                             };
 
                             let response = response.into_inner();
-                            let datanode_addr = response.datanode_addr;
+                            let datanode_addresses = response.datanode_addr;
 
-                            println!(
-                                "Writing contents of {} to datanode: {}",
-                                file_path, datanode_addr
-                            );
-                            let channel = Channel::from_shared(format!("http://{}", datanode_addr))
-                                .unwrap()
-                                .connect()
-                                .await?;
+                            for datanode_addr in datanode_addresses {
+                                println!(
+                                    "Writing contents of {} to datanode: {}",
+                                    file_path, datanode_addr
+                                );
+                                let channel =
+                                    Channel::from_shared(format!("http://{}", datanode_addr))
+                                        .unwrap()
+                                        .connect()
+                                        .await?;
 
-                            let mut datanode_client = DataNodeProtocolsClient::new(channel);
+                                let mut datanode_client = DataNodeProtocolsClient::new(channel);
 
-                            let block_info = BlockInfo {
-                                block_id: 0,
-                                block_size: file_size,
-                                block_data: file_data,
-                            };
-                            let request = Request::new(CreateBlockRequest {
-                                file_name: file_path.to_string(),
-                                client_info: Some(self.client_info.clone()),
-                                block_info: Some(block_info.clone()),
-                            });
-                            let response = match datanode_client.create_file(request).await {
-                                Ok(response) => response,
-                                Err(e) => {
-                                    println!("Error: {}", e);
-                                    continue;
+                                let block_info = BlockInfo {
+                                    block_id: 0,
+                                    block_size: file_size,
+                                    block_data: file_data.clone(),
+                                };
+                                let request = Request::new(CreateBlockRequest {
+                                    file_name: file_path.to_string(),
+                                    client_info: Some(self.client_info.clone()),
+                                    block_info: Some(block_info.clone()),
+                                });
+                                let response = match datanode_client.create_file(request).await {
+                                    Ok(response) => response,
+                                    Err(e) => {
+                                        println!("Error: {}", e);
+                                        continue;
+                                    }
+                                };
+
+                                if !response.into_inner().success {
+                                    println!("Failed to create file: {}", file_path);
+                                } else {
+                                    println!("Successfully created file: {}", file_path);
                                 }
-                            };
-
-                            if !response.into_inner().success {
-                                println!("Failed to create file: {}", file_path);
-                            } else {
-                                println!("Successfully created file: {}", file_path);
                             }
                         }
                     }
@@ -307,7 +310,9 @@ impl Client {
                             println!("File content: {}", String::from_utf8_lossy(&data));
                         }
                     }
-
+                    "exit" => {
+                        break;
+                    }
                     _ => {
                         println!("Invalid Command.");
                         continue;

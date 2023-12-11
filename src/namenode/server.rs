@@ -125,8 +125,18 @@ impl ClientProtocols for NameNodeService {
             .client
             .expect("Client information not provided");
 
-        let datanode_addr = match self.records.add_file(&file_path, uid).await {
-            Ok(address) => address,
+        // let datanode_addr = match self.records.add_file(&file_path, uid).await {
+        //     Ok(address) => address,
+        //     Err(err) => {
+        //         println!("{}", err);
+        //         return Err(tonic::Status::internal(
+        //             "Failed to add file (no datanodes running)",
+        //         ));
+        //     }
+        // };
+
+        let replicated_addresses = match self.records.add_file_replicas(&file_path, uid).await {
+            Ok(addresses) => addresses,
             Err(err) => {
                 println!("{}", err);
                 return Err(tonic::Status::internal(
@@ -136,7 +146,7 @@ impl ClientProtocols for NameNodeService {
         };
 
         let response = CreateFileResponse {
-            datanode_addr,
+            datanode_addr: replicated_addresses,
             response: Some(GenericReply {
                 is_success: true,
                 message: format!("Create request successfully processed for: {}", file_path),
