@@ -33,6 +33,7 @@ async fn main() {
     let namenode_port = 3000;
     let client_port = 3030;
     // let datanode_port = 7000;
+    let replication_factor = 3;
 
     match args.command {
         Command::Datanode { port } => {
@@ -41,7 +42,7 @@ async fn main() {
         }
 
         Command::Namenode {} => {
-            let nameserver = NameNodeServer::new(namenode_port);
+            let nameserver = NameNodeServer::new(namenode_port, replication_factor);
             let _ = nameserver.run_nameserver().await;
         }
 

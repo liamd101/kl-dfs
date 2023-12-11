@@ -25,10 +25,10 @@ pub struct NameNodeServer {
 }
 
 impl NameNodeServer {
-    pub fn new(port: u16) -> Self {
+    pub fn new(port: u16, replication_count: u64) -> Self {
         Self {
             address: format!("127.0.0.1:{}", port),
-            records: Arc::new(NameNodeRecords::new()),
+            records: Arc::new(NameNodeRecords::new(replication_count)),
         }
     }
 
@@ -106,7 +106,6 @@ impl ClientProtocols for NameNodeService {
         };
 
         Ok(Response::new(response))
-        // Ok(Response::new(SystemInfoResponse { namenode: None, nodes: vec![], num_datanodes: 0 }))
     }
 
     async fn create_file(
