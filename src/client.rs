@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::Read;
 
 use std::net::SocketAddr;
-use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt};
+use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader};
 
 use crate::proto::{
     client_protocols_client::ClientProtocolsClient,
@@ -116,7 +116,9 @@ impl Client {
                     "read" => {
                         if let Some(file_path) = iter.next() {
                             match self.handle_read(file_path).await {
-                                Ok(_) => {}
+                                Ok(_) => {
+
+                                }
                                 Err(e) => {
                                     println!("Error: {}", e);
                                     continue;
@@ -156,10 +158,12 @@ impl Client {
         let response = response.into_inner();
         let block_addrs = response.datanode_addrs;
 
+        let mut buffer = Vec::<u8>::with_capacity(4096);
+
+        println!("Reading file: {}", file_path);
         for (block_id, blocks) in block_addrs.into_iter().enumerate() {
             let datanode_addr = &blocks.nodes[0];
 
-            println!("Reading from datanode: {}", datanode_addr);
             let mut datanode_client = self.create_client(datanode_addr).await?;
 
             let block_name = format!("{}_{}", file_path, block_id);
@@ -177,9 +181,15 @@ impl Client {
                 Err(e) => return Err(Box::new(e)),
             };
 
-            let data = response.into_inner().block_data;
-            println!("File content:\n{}", String::from_utf8_lossy(&data));
+            let block_data = response.into_inner().block_data;
+            buffer.extend_from_slice(&block_data);
+            if buffer.len() >= 4096 {
+                println!("{}", String::from_utf8_lossy(&buffer)); // i think there's a better way
+                                                                  // to do this
+                buffer.clear();
+            }
         }
+        println!("{}", String::from_utf8_lossy(&buffer));
 
         Ok(())
     }
@@ -203,7 +213,6 @@ impl Client {
 
         for (block_id, blocks) in block_addrs.into_iter().enumerate() {
             let datanode_addr = &blocks.nodes[0];
-            println!("Deleting {} from datanode: {}", file_path, datanode_addr);
             let mut datanode_client = self.create_client(datanode_addr).await?;
 
             let block_name = format!("{}_{}", file_path, block_id);
