@@ -46,7 +46,7 @@ async fn main() {
         }
 
         Command::Client {} => {
-            let mut client = Client::new(1, namenode_port, block_size)
+            let mut client = Client::new(namenode_port, block_size)
                 .await
                 .expect("Client failed");
             match client.run_client().await {

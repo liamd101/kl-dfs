@@ -7,10 +7,6 @@ message GenericReply {
     string message = 2;
 }
 
-message ClientInfo {
-    int64 uid = 1;
-}
-
 message FileInfo {
     string file_path = 1;
     int64 file_size = 2;
@@ -24,13 +20,11 @@ message BlockInfo {
 }
 
 message FileRequest {
-    ClientInfo client = 1;
-    FileInfo file_info = 2;
+    FileInfo file_info = 1;
 }
 
 message BlockRequest {
-     ClientInfo client = 1;
-     BlockInfo block_info = 2;
+     BlockInfo block_info = 1;
 }
 
 message BlockData {

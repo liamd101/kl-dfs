@@ -77,15 +77,6 @@ impl ClientProtocols for NameNodeService {
     ) -> Result<tonic::Response<SystemInfoResponse>, tonic::Status> {
         let system_info_request = request.into_inner();
 
-        if let Some(client_info) = system_info_request.client {
-            println!(
-                "Received SystemInfoRequest from client: {}",
-                client_info.uid
-            );
-        } else {
-            eprintln!("Received SystemInfoRequest with no ClientInfo");
-        }
-
         let namenode_status = NodeStatus {
             node_address: self.address.clone(),
             is_online: true,

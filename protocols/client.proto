@@ -14,27 +14,22 @@ service ClientProtocols {
 
 // request for node statuses
 message SystemInfoRequest {
-    ClientInfo client = 1;
 }
 
 message CreateFileRequest {
-    ClientInfo client = 1;
-    FileInfo file_info = 2;
+    FileInfo file_info = 1;
 }
 
 message UpdateFileRequest {
-    ClientInfo client = 1;
-    FileInfo file_info = 2;
+    FileInfo file_info = 1;
 }
 
 message DeleteFileRequest {
-    ClientInfo client = 1;
-    FileInfo file_info = 2;
+    FileInfo file_info = 1;
 }
 
 message ReadFileRequest {
-    ClientInfo client = 1;
-    FileInfo file_info = 2;
+    FileInfo file_info = 1;
 }
 
 message SystemInfoResponse {

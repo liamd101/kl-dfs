@@ -7,7 +7,7 @@ use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt};
 
 use crate::proto::{
     client_protocols_client::ClientProtocolsClient,
-    data_node_protocols_client::DataNodeProtocolsClient, BlockInfo, ClientInfo, CreateBlockRequest,
+    data_node_protocols_client::DataNodeProtocolsClient, BlockInfo, CreateBlockRequest,
     CreateFileRequest, DeleteBlockRequest, DeleteFileRequest, FileInfo, ReadFileRequest,
     SystemInfoRequest, UpdateBlockRequest, UpdateFileRequest,
 };
@@ -15,13 +15,12 @@ use crate::proto::{
 use tonic::{transport::Channel, Request};
 
 pub struct Client {
-    client_info: ClientInfo,
     namenode_client: ClientProtocolsClient<Channel>,
     block_size: usize,
 }
 
 impl Client {
-    pub async fn new(id: i64, name_port: u16, block_size: usize) -> Result<Self, Box<dyn Error>> {
+    pub async fn new(name_port: u16, block_size: usize) -> Result<Self, Box<dyn Error>> {
         let namenode_addr = SocketAddr::from(([127, 0, 0, 1], name_port));
         let namenode_addr = format!("http://{}", namenode_addr);
         let channel = Channel::from_shared(namenode_addr)
@@ -32,7 +31,6 @@ impl Client {
         let client = ClientProtocolsClient::new(channel);
 
         Ok(Client {
-            client_info: ClientInfo { uid: id },
             namenode_client: client,
             block_size,
         })
@@ -267,11 +265,11 @@ impl Client {
         let block_addrs = &response.datanode_addrs;
 
         for (block_id, blocks) in block_addrs.into_iter().enumerate() {
-            let datanode_addr = &blocks.nodes[0];
             println!(
-                "Updating block {} of {} to datanode: {}",
-                block_id, file_path, datanode_addr
+                "Updating block {} of {}",
+                block_id, file_path
             );
+            let datanode_addr = &blocks.nodes[0];
 
             let mut datanode_client = self.create_client(datanode_addr).await?;
 

@@ -14,19 +14,16 @@ service DataNodeProtocols {
 
 message CreateBlockRequest {
     string file_name = 1;
-    ClientInfo client_info = 2;
-    BlockInfo block_info = 3;
+    BlockInfo block_info = 2;
 }
 
 message UpdateBlockRequest {
     string file_name = 1;
-    ClientInfo client_info = 2;
-    BlockInfo block_info = 3;
+    BlockInfo block_info = 2;
 }
 
 message DeleteBlockRequest {
     string block_name = 1;
-    ClientInfo client_info = 2;
 }
 
 message CreateBlockResponse {

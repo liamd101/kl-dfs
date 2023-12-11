@@ -27,7 +27,6 @@ pub struct NameNodeRecords {
     datanodes: Mutex<HashMap<u64, DataNodeInfo>>, // datanode id : datanode info
 
     /// maps datanode ip address to datanode id
-    /// ???? why is this a thing?????
     datanode_ids: Mutex<HashMap<String, u64>>,
 
     /// maps blocks to block metadata (including which datanodes a block is on)
@@ -51,7 +50,6 @@ impl Default for NameNodeRecords {
 }
 
 // TODO: heartbeat monitor - sends and checks for heartbeats and keeps datanodes updated with alive statuses
-// how does it handle if we started making a file, but it wasn't actually written??
 impl NameNodeRecords {
     pub fn new(replication_count: usize, block_size: usize) -> Self {
         Self {
@@ -115,7 +113,7 @@ impl NameNodeRecords {
         shuffled_datanodes.shuffle(&mut rng);
         let selected_datanodes = shuffled_datanodes
             .into_iter()
-            .take(3)
+            .take(self.replication_count)
             .map(|datanode| datanode.addr)
             .collect();
 
@@ -244,10 +242,6 @@ impl NameNodeRecords {
         }
         // update heartbeat time record
         heartbeats.insert(address.to_string(), SystemTime::now());
-
-        // for (addr, time) in heartbeats.iter() {
-        //     println!("Datanode {}: {:?}", addr, time);
-        // }
     }
 }
 
@@ -359,7 +353,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_replication() {
-        let records = NameNodeRecords::new(2);
+        let records = NameNodeRecords::new(2, 4096);
         let datanode1 = "127.0.0.1:5000";
         let datanode2 = "127.0.0.1:5001";
         let datanode3 = "127.0.0.1:5002";
