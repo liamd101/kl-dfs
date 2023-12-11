@@ -126,7 +126,6 @@ impl NameNodeRecords {
     ) -> Result<Vec<Vec<String>>, Box<dyn Error>> {
         let mut file_records = self.file_records.lock().unwrap();
         let num_blocks = file_records.remove(file_path).unwrap_or(0usize);
-        drop(file_records);
 
         let mut addrs = Vec::<Vec<String>>::with_capacity(num_blocks);
 
@@ -151,14 +150,14 @@ impl NameNodeRecords {
     pub async fn get_file_addresses(
         &self,
         file_path: &str,
-        file_size: usize,
     ) -> Result<Vec<Vec<String>>, Box<dyn Error>> {
-        let num_blocks = (file_size + (self.block_size - 1)) / self.block_size;
+        let file_records = self.file_records.lock().unwrap();
+        let num_blocks = file_records.get(file_path).map(|&v| v).unwrap_or(0usize);
         let mut addrs = Vec::<Vec<String>>::with_capacity(num_blocks);
 
         for i in 0..num_blocks {
             let block_path = format!("{}_{}", file_path, i);
-            let addr = self.get_block_addresses(block_path).await?;
+            let addr = self.get_block_addresses(block_path).expect("Block does not exist");
             addrs.push(addr);
         }
 
@@ -166,7 +165,7 @@ impl NameNodeRecords {
     }
 
     // returns a vector of datanode addresses that the file lives on
-    async fn get_block_addresses(&self, file_path: String) -> Result<Vec<String>, &str> {
+    fn get_block_addresses(&self, file_path: String) -> Result<Vec<String>, &str> {
         let file_id = Self::get_file_id(&file_path);
         let block_records = self.block_records.read().unwrap();
 

@@ -8,7 +8,7 @@ use tokio::time::interval;
 use crate::proto::data_node_protocols_server::{DataNodeProtocols, DataNodeProtocolsServer};
 use crate::proto::{
     hearbeat_protocol_client::HearbeatProtocolClient, CreateBlockRequest, CreateBlockResponse,
-    DeleteBlockResponse, DeleteFileRequest, FileInfo, Heartbeat, ReadBlockResponse,
+    DeleteBlockResponse, DeleteBlockRequest, FileInfo, Heartbeat, ReadBlockResponse,
     ReadFileRequest, UpdateBlockRequest, UpdateBlockResponse,
 };
 
@@ -101,6 +101,8 @@ impl DataNodeProtocols for DataNodeServer {
         })?;
         let file_path = request.file_name;
 
+        println!("Creating file: {}", file_path);
+
         let mut storage = self.storage.lock().await;
         storage
             .create(&file_path, block_info)
@@ -134,19 +136,16 @@ impl DataNodeProtocols for DataNodeServer {
 
     async fn delete_file(
         &self,
-        request: tonic::Request<DeleteFileRequest>,
+        request: tonic::Request<DeleteBlockRequest>,
     ) -> Result<tonic::Response<DeleteBlockResponse>, tonic::Status> {
         let request = request.into_inner();
-        let FileInfo {
-            file_path,
-            file_size: _,
-        } = request.file_info.ok_or_else(|| {
-            tonic::Status::new(tonic::Code::InvalidArgument, "File info not found")
-        })?;
+        let block_name = request.block_name;
+
+        println!("Deleting file: {}", block_name);
 
         let mut storage = self.storage.lock().await;
         storage
-            .delete(&file_path)
+            .delete(&block_name)
             .await
             .expect("Failed to delete file");
         drop(storage);

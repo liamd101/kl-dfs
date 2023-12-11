@@ -123,7 +123,7 @@ impl ClientProtocols for NameNodeService {
             .file_info
             .expect("File information not provided");
 
-        let datanode_addr = match self.records.add_file(&file_path, file_size as usize).await {
+        let addresses = match self.records.add_file(&file_path, file_size as usize).await {
             Ok(addresses) => addresses,
             Err(err) => {
                 println!("{}", err);
@@ -133,10 +133,10 @@ impl ClientProtocols for NameNodeService {
             }
         };
 
-        println!("DataNode addresses: {:?}", datanode_addr);
+        println!("DataNode addresses: {:?}", addresses);
 
         let response = CreateFileResponse {
-            datanode_addrs: datanode_addr.into_iter().map(|addr| addr.into()).collect(),
+            datanode_addrs: addresses.into_iter().map(|addr| addr.into()).collect(),
             response: Some(GenericReply {
                 is_success: true,
                 message: format!("Create request successfully processed for: {}", file_path),
@@ -155,14 +155,14 @@ impl ClientProtocols for NameNodeService {
 
         let FileInfo {
             file_path,
-            file_size,
+            file_size: _,
         } = update_request
             .file_info
             .expect("File information not provided");
 
         let addresses = match self
             .records
-            .get_file_addresses(&file_path, file_size as usize)
+            .get_file_addresses(&file_path)
             .await
         {
             Ok(addresses) => addresses,
@@ -208,6 +208,8 @@ impl ClientProtocols for NameNodeService {
             }
         };
 
+        println!("DataNode addresses: {:?}", addresses);
+
         let del_response = DeleteFileResponse {
             datanode_addrs: addresses.into_iter().map(|addr| addr.into()).collect(),
             response: Some(GenericReply {
@@ -235,7 +237,7 @@ impl ClientProtocols for NameNodeService {
 
         let datanode_addr = match self
             .records
-            .get_file_addresses(&file_path, file_size as usize)
+            .get_file_addresses(&file_path)
             .await
         {
             Ok(addresses) => addresses,

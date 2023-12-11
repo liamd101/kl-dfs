@@ -9,7 +9,7 @@ use crate::proto::{
     client_protocols_client::ClientProtocolsClient,
     data_node_protocols_client::DataNodeProtocolsClient, BlockInfo, ClientInfo, CreateBlockRequest,
     CreateFileRequest, DeleteFileRequest, FileInfo, ReadFileRequest, SystemInfoRequest,
-    UpdateBlockRequest, UpdateFileRequest,
+    UpdateBlockRequest, UpdateFileRequest, DeleteBlockRequest,
 };
 
 use tonic::{transport::Channel, Request};
@@ -201,14 +201,15 @@ impl Client {
         let response = response.into_inner();
         let block_addrs = response.datanode_addrs;
 
-        for blocks in block_addrs {
+        for (block_id, blocks) in block_addrs.into_iter().enumerate() {
             let datanode_addr = &blocks.nodes[0];
             println!("Deleting {} from datanode: {}", file_path, datanode_addr);
             let mut datanode_client = self.create_client(datanode_addr).await?;
 
-            let request = Request::new(DeleteFileRequest {
-                client: Some(self.client_info.clone()),
-                file_info: Some(file.clone()),
+            let block_name = format!("{}_{}", file_path, block_id);
+            let request = Request::new(DeleteBlockRequest {
+                client_info: Some(self.client_info.clone()),
+                block_name
             });
             let response = match datanode_client.delete_file(request).await {
                 Ok(response) => response,
