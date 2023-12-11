@@ -50,12 +50,12 @@ message CreateFileResponse {
 
 message UpdateFileResponse {
     GenericReply response = 1;
-    repeated string datanode_addr = 2;
+    repeated NodeList datanode_addrs = 2;
 }
 
 message DeleteFileResponse {
     GenericReply response = 1;
-    repeated string datanode_addr = 2;
+    repeated NodeList datanode_addrs = 2;
 }
 
 message ReadFileResponse {

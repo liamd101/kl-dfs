@@ -18,6 +18,10 @@ pub struct Client {
     client_info: ClientInfo,
 }
 
+fn format(addr: &str) -> String {
+    format!("http://{}", addr)
+}
+
 impl Client {
     pub fn new(id: i64, name_port: u16, client_port: u16) -> Self {
         Client {
@@ -105,7 +109,7 @@ impl Client {
                                 file_path, datanode_addr
                             );
 
-                            let channel = Channel::from_shared(format!("http://{}", datanode_addr))
+                            let channel = Channel::from_shared(format(datanode_addr))
                                 .unwrap()
                                 .connect()
                                 .await?;
@@ -122,6 +126,7 @@ impl Client {
                                 client_info: Some(self.client_info.clone()),
                                 block_info: Some(block_info.clone()),
                             });
+
                             let response = match datanode_client.create_file(request).await {
                                 Ok(response) => response,
                                 Err(e) => {
@@ -166,13 +171,15 @@ impl Client {
                             };
 
                             let response = response.into_inner();
-                            let datanode_addr = &response.datanode_addr[0];
+                            let block_addrs = &response.datanode_addrs;
+
+                            let datanode_addr = &block_addrs[0].nodes[0];
 
                             println!(
                                 "Writing contents of {} to datanode: {}",
                                 file_path, datanode_addr
                             );
-                            let channel = Channel::from_shared(format!("http://{}", datanode_addr))
+                            let channel = Channel::from_shared(format(datanode_addr))
                                 .unwrap()
                                 .connect()
                                 .await?;
@@ -224,15 +231,16 @@ impl Client {
                             };
 
                             let response = response.into_inner();
-                            let datanode_addrs = response.datanode_addr;
+                            let block_addrs = response.datanode_addrs;
+
+                            let datanode_addrs = &block_addrs[0].nodes;
 
                             for datanode_addr in datanode_addrs {
                                 println!("Deleting {} from datanode: {}", file_path, datanode_addr);
-                                let channel =
-                                    Channel::from_shared(format!("http://{}", datanode_addr))
-                                        .unwrap()
-                                        .connect()
-                                        .await?;
+                                let channel = Channel::from_shared(format(datanode_addr))
+                                    .unwrap()
+                                    .connect()
+                                    .await?;
 
                                 let mut datanode_client = DataNodeProtocolsClient::new(channel);
 
@@ -289,7 +297,7 @@ impl Client {
                             let datanode_addr = &block_addrs[0].nodes[0];
 
                             println!("Reading from datanode: {}", datanode_addr);
-                            let channel = Channel::from_shared(format!("http://{}", datanode_addr))
+                            let channel = Channel::from_shared(format(datanode_addr))
                                 .unwrap()
                                 .connect()
                                 .await?;

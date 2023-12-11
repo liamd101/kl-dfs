@@ -2,16 +2,15 @@ use crate::namenode::records::NameNodeRecords;
 use crate::proto::NodeList;
 use crate::proto::{
     client_protocols_server::{ClientProtocols, ClientProtocolsServer},
-    ClientInfo, CreateFileRequest, CreateFileResponse, DeleteFileRequest, DeleteFileResponse,
-    FileInfo, GenericReply, NodeStatus, ReadFileRequest, ReadFileResponse, SystemInfoRequest,
+    hearbeat_protocol_server::{HearbeatProtocol, HearbeatProtocolServer},
+    CreateFileRequest, CreateFileResponse, DeleteFileRequest, DeleteFileResponse, FileInfo,
+    GenericReply, Heartbeat, NodeStatus, ReadFileRequest, ReadFileResponse, SystemInfoRequest,
     SystemInfoResponse, UpdateFileRequest, UpdateFileResponse,
 };
-use crate::proto::{
-    hearbeat_protocol_server::{HearbeatProtocol, HearbeatProtocolServer},
-    Heartbeat,
-};
+
+use std::net::SocketAddr;
 use std::sync::Arc;
-use std::{net::SocketAddr, str::FromStr};
+
 use tonic::transport::Server;
 use tonic::Response;
 
@@ -21,29 +20,22 @@ pub struct NameNodeServer {
     // blocks: HashMap<u64, Vec<DataNode>>,
     // metadata: HashMap<u64, FileMetadata>, // from file id : file metadata
     // addr: String,
-    address: String,
+    address: SocketAddr,
     records: Arc<NameNodeRecords>,
 }
 
 impl NameNodeServer {
     pub fn new(port: u16) -> Self {
+        let address = SocketAddr::from(([127, 0, 0, 1], port));
         Self {
-            address: format!("127.0.0.1:{}", port),
+            address,
             records: Arc::new(NameNodeRecords::new()),
         }
     }
 
     pub async fn run_nameserver(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let socket = match SocketAddr::from_str(&self.address) {
-            Ok(socket_addr) => socket_addr,
-            Err(err) => {
-                eprintln!("Error parsing socket address: {}", err);
-                return Err(err.into());
-            }
-        };
-
         let client_protocols_service =
-            NameNodeService::new(self.address.clone(), Arc::clone(&self.records));
+            NameNodeService::new(self.address.to_string(), Arc::clone(&self.records));
         println!("Server listening on {}", self.address);
 
         Server::builder()
@@ -51,7 +43,7 @@ impl NameNodeServer {
             .add_service(HearbeatProtocolServer::new(HeartbeatRecordService::new(
                 Arc::clone(&self.records),
             )))
-            .serve(socket)
+            .serve(self.address)
             .await?;
 
         Ok(())
@@ -168,25 +160,26 @@ impl ClientProtocols for NameNodeService {
             .file_info
             .expect("File information not provided");
 
-        match self.records.get_file_addresses(&file_path, file_size as usize).await {
-            Ok(addresses) => {
-                let upd_response = UpdateFileResponse {
-                    response: Some(GenericReply {
-                        is_success: true,
-                        message: format!(
-                            "Update request successfully processed for: {}",
-                            file_path
-                        ),
-                    }),
-                    datanode_addr: addresses.clone().pop().unwrap(),
-                };
-                Ok(Response::new(upd_response))
-            }
+        let addresses = match self
+            .records
+            .get_file_addresses(&file_path, file_size as usize)
+            .await
+        {
+            Ok(addresses) => addresses,
             Err(err) => {
                 println!("{}", err);
-                Err(tonic::Status::internal("File does not exist"))
+                return Err(tonic::Status::internal("File does not exist"));
             }
-        }
+        };
+
+        let upd_response = UpdateFileResponse {
+            datanode_addrs: addresses.into_iter().map(|addr| addr.into()).collect(),
+            response: Some(GenericReply {
+                is_success: true,
+                message: format!("Update request successfully processed for: {}", file_path),
+            }),
+        };
+        Ok(Response::new(upd_response))
     }
 
     async fn delete_file(
@@ -198,32 +191,31 @@ impl ClientProtocols for NameNodeService {
 
         let FileInfo {
             file_path,
-            file_size: _,
+            file_size,
         } = delete_request
             .file_info
             .expect("File information not provided");
-        let ClientInfo { uid } = delete_request
-            .client
-            .expect("Client information not provided");
 
-        match self.records.remove_file(&file_path, uid).await {
-            Ok(addresses) => {
-                let del_response = DeleteFileResponse {
-                    response: Some(GenericReply {
-                        is_success: true,
-                        message: format!("Delete request succesfully processed for: {}", file_path),
-                    }),
-                    datanode_addr: addresses,
-                };
-                Ok(Response::new(del_response))
-            }
+        let addresses = match self
+            .records
+            .remove_file(&file_path, file_size as usize)
+            .await
+        {
+            Ok(addresses) => addresses,
             Err(err) => {
                 println!("{}", err);
-                Err(tonic::Status::internal(
-                    "Failed to add file (no datanodes running)",
-                ))
+                return Err(tonic::Status::internal("File does not exist"));
             }
-        }
+        };
+
+        let del_response = DeleteFileResponse {
+            datanode_addrs: addresses.into_iter().map(|addr| addr.into()).collect(),
+            response: Some(GenericReply {
+                is_success: true,
+                message: format!("Delete request succesfully processed for: {}", file_path),
+            }),
+        };
+        Ok(Response::new(del_response))
     }
 
     // returns list of datanode addresses containing this file
@@ -240,9 +232,6 @@ impl ClientProtocols for NameNodeService {
         } = read_request
             .file_info
             .expect("File information not provided");
-        let ClientInfo { uid } = read_request
-            .client
-            .expect("Client information not provided");
 
         let datanode_addr = match self
             .records

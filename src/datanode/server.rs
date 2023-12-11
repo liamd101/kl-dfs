@@ -1,5 +1,5 @@
 use std::error::Error;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
@@ -31,10 +31,8 @@ pub struct DataNodeServer {
 
 impl DataNodeServer {
     pub fn new(port: u16, namenode_port: u16) -> Self {
-        let datanode_addr: SocketAddr =
-            SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
-        let namenode_addr: SocketAddr =
-            SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), namenode_port);
+        let datanode_addr = SocketAddr::from(([127, 0, 0, 1], port));
+        let namenode_addr = SocketAddr::from(([127, 0, 0, 1], namenode_port));
         DataNodeServer {
             datanode_addr,
             storage: Arc::new(Mutex::new(Storage::new())),
