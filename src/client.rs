@@ -3,6 +3,7 @@ use std::fs::File;
 use std::io::Read;
 
 use std::net::SocketAddr;
+use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt};
 
 use crate::proto::{
     client_protocols_client::ClientProtocolsClient,
@@ -10,21 +11,17 @@ use crate::proto::{
     CreateFileRequest, DeleteFileRequest, FileInfo, ReadFileRequest, SystemInfoRequest,
     UpdateBlockRequest, UpdateFileRequest,
 };
-use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt};
 
 use tonic::{transport::Channel, Request};
 
 pub struct Client {
     client_info: ClientInfo,
     namenode_client: ClientProtocolsClient<Channel>,
-}
-
-fn format(addr: &str) -> String {
-    format!("http://{}", addr)
+    block_size: usize,
 }
 
 impl Client {
-    pub async fn new(id: i64, name_port: u16) -> Result<Self, Box<dyn Error>> {
+    pub async fn new(id: i64, name_port: u16, block_size: usize) -> Result<Self, Box<dyn Error>> {
         let namenode_addr = SocketAddr::from(([127, 0, 0, 1], name_port));
         let namenode_addr = format!("http://{}", namenode_addr);
         let channel = Channel::from_shared(namenode_addr)
@@ -37,6 +34,7 @@ impl Client {
         Ok(Client {
             client_info: ClientInfo { uid: id },
             namenode_client: client,
+            block_size,
         })
     }
 
@@ -44,7 +42,11 @@ impl Client {
         &self,
         client_addr: &str,
     ) -> Result<DataNodeProtocolsClient<Channel>, Box<dyn Error>> {
-        let channel = Channel::from_shared(client_addr.to_string()).unwrap().connect().await?;
+        let client_addr = format!("http://{}", client_addr);
+        let channel = Channel::from_shared(client_addr)
+            .unwrap()
+            .connect()
+            .await?;
 
         Ok(DataNodeProtocolsClient::new(channel))
     }
@@ -156,28 +158,31 @@ impl Client {
         let response = response.into_inner();
         let block_addrs = response.datanode_addrs;
 
-        let datanode_addr = &block_addrs[0].nodes[0];
+        for (block_id, blocks) in block_addrs.into_iter().enumerate() {
+            let datanode_addr = &blocks.nodes[0];
 
-        println!("Reading from datanode: {}", datanode_addr);
-        let channel = Channel::from_shared(format(datanode_addr))
-            .unwrap()
-            .connect()
-            .await?;
+            println!("Reading from datanode: {}", datanode_addr);
+            let mut datanode_client = self.create_client(datanode_addr).await?;
 
-        let mut datanode_client = DataNodeProtocolsClient::new(channel);
+            let block_name = format!("{}_{}", file_path, block_id);
+            let file_info = FileInfo {
+                file_path: block_name,
+                file_size: 0,
+            };
+            let request = Request::new(ReadFileRequest {
+                client: Some(self.client_info.clone()),
+                file_info: Some(file_info),
+            });
 
-        let request = Request::new(ReadFileRequest {
-            client: Some(self.client_info.clone()),
-            file_info: Some(file.clone()),
-        });
+            let response = match datanode_client.read_file(request).await {
+                Ok(response) => response,
+                Err(e) => return Err(Box::new(e)),
+            };
 
-        let response = match datanode_client.read_file(request).await {
-            Ok(response) => response,
-            Err(e) => return Err(Box::new(e)),
-        };
+            let data = response.into_inner().block_data;
+            println!("File content:\n{}", String::from_utf8_lossy(&data));
+        }
 
-        let data = response.into_inner().block_data;
-        println!("File content:\n{}", String::from_utf8_lossy(&data));
         Ok(())
     }
 
@@ -198,16 +203,10 @@ impl Client {
         let response = response.into_inner();
         let block_addrs = response.datanode_addrs;
 
-        let datanode_addrs = &block_addrs[0].nodes;
-
-        for datanode_addr in datanode_addrs {
+        for blocks in block_addrs {
+            let datanode_addr = &blocks.nodes[0];
             println!("Deleting {} from datanode: {}", file_path, datanode_addr);
-            let channel = Channel::from_shared(format(datanode_addr))
-                .unwrap()
-                .connect()
-                .await?;
-
-            let mut datanode_client = DataNodeProtocolsClient::new(channel);
+            let mut datanode_client = self.create_client(datanode_addr).await?;
 
             let request = Request::new(DeleteFileRequest {
                 client: Some(self.client_info.clone()),
@@ -245,7 +244,7 @@ impl Client {
 
         let file = FileInfo {
             file_path: file_path.to_string(), // so far just flat file system, no directories; this is name
-            file_size: 4096,
+            file_size,
         };
         let request = Request::new(UpdateFileRequest {
             client: Some(self.client_info.clone()),
@@ -265,12 +264,7 @@ impl Client {
             "Writing contents of {} to datanode: {}",
             file_path, datanode_addr
         );
-        let channel = Channel::from_shared(format(datanode_addr))
-            .unwrap()
-            .connect()
-            .await?;
-
-        let mut datanode_client = DataNodeProtocolsClient::new(channel);
+        let mut datanode_client = self.create_client(datanode_addr).await?;
 
         let block_info = BlockInfo {
             block_id: 0,
@@ -321,36 +315,41 @@ impl Client {
         let response = response.into_inner();
         let block_addrs = response.datanode_addrs;
 
-        let datanode_addr = &block_addrs[0].nodes[0];
+        for (block_id, blocks) in block_addrs.into_iter().enumerate() {
+            let datanode_addr = &blocks.nodes[0];
+            println!(
+                "Writing contents of {} to datanode: {}",
+                file_path, datanode_addr
+            );
 
-        println!(
-            "Writing contents of {} to datanode: {}",
-            file_path, datanode_addr
-        );
+            let mut datanode_client = self.create_client(datanode_addr).await?;
 
-        let mut datanode_client = self.create_client(datanode_addr).await?;
+            let start = block_id * self.block_size;
+            let end = std::cmp::min(file_data.len(), (block_id + 1) * self.block_size);
+            let slice = &file_data[start..end];
 
-        let block_info = BlockInfo {
-            block_id: 0,
-            block_size: file_size,
-            block_data: file_data,
-        };
-        let request = Request::new(CreateBlockRequest {
-            file_name: file_path.to_string(),
-            client_info: Some(self.client_info.clone()),
-            block_info: Some(block_info.clone()),
-        });
+            let mut block_data = Vec::<u8>::with_capacity(self.block_size);
+            let _ = block_data.write(slice).await?;
 
-        let response = match datanode_client.create_file(request).await {
-            Ok(response) => response,
-            Err(e) => return Err(Box::new(e)),
-        };
+            let block_info = BlockInfo {
+                block_id: block_id as i64,
+                block_size: (end - start) as i64,
+                block_data,
+            };
 
-        if !response.into_inner().success {
-            println!("Failed to create file: {}", file_path);
-        } else {
-            println!("Successfully created file: {}", file_path);
+            let block_name = format!("{}_{}", file_path, block_id);
+            let request = Request::new(CreateBlockRequest {
+                file_name: block_name,
+                client_info: Some(self.client_info.clone()),
+                block_info: Some(block_info.clone()),
+            });
+
+            let _ = match datanode_client.create_file(request).await {
+                Ok(response) => response,
+                Err(e) => return Err(Box::new(e)),
+            };
         }
+
         Ok(())
     }
 }

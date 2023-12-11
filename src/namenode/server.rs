@@ -25,11 +25,11 @@ pub struct NameNodeServer {
 }
 
 impl NameNodeServer {
-    pub fn new(port: u16) -> Self {
+    pub fn new(port: u16, block_size: usize) -> Self {
         let address = SocketAddr::from(([127, 0, 0, 1], port));
         Self {
             address,
-            records: Arc::new(NameNodeRecords::new()),
+            records: Arc::new(NameNodeRecords::new(block_size)),
         }
     }
 
@@ -274,12 +274,9 @@ impl HearbeatProtocol for HeartbeatRecordService {
         request: tonic::Request<Heartbeat>,
     ) -> std::result::Result<tonic::Response<GenericReply>, tonic::Status> {
         let incoming_heartbeat = request.into_inner();
-        println!("Received heartbeat: {:?}", incoming_heartbeat);
 
-        // let Heartbeat{address, time} = incoming_heartbeat;
         let Heartbeat { address } = incoming_heartbeat;
 
-        // self.records.record_heartbeat(&address, time);
         self.records.record_heartbeat(&address).await;
         let reply = GenericReply {
             is_success: true,

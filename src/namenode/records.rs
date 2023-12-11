@@ -11,8 +11,6 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::{atomic, Mutex, RwLock};
 use std::time::SystemTime;
 
-const DEFAULT_BLOCK_SIZE: usize = 4096;
-
 #[derive(Clone)]
 pub struct DataNodeInfo {
     _id: u64,
@@ -22,6 +20,7 @@ pub struct DataNodeInfo {
 
 // basically recordkeeper/bookkeeper
 pub struct NameNodeRecords {
+    block_size: usize,
     datanodes: Mutex<HashMap<u64, DataNodeInfo>>, // datanode id : datanode info
     datanode_ids: Mutex<HashMap<String, u64>>,    // datanode ip string, datanode id
     block_records: RwLock<BlockRecords>, // maps blocks to block metadata (including which datanodes a block is on)
@@ -32,15 +31,16 @@ pub struct NameNodeRecords {
 
 impl Default for NameNodeRecords {
     fn default() -> Self {
-        Self::new()
+        Self::new(4096)
     }
 }
 
 // TODO: heartbeat monitor - sends and checks for heartbeats and keeps datanodes updated with alive statuses
 // how does it handle if we started making a file, but it wasn't actually written??
 impl NameNodeRecords {
-    pub fn new() -> Self {
+    pub fn new(block_size: usize) -> Self {
         Self {
+            block_size,
             datanodes: Mutex::new(HashMap::new()),
             datanode_ids: Mutex::new(HashMap::new()),
             block_records: RwLock::new(BlockRecords::new()),
@@ -72,7 +72,7 @@ impl NameNodeRecords {
         file_path: &str,
         file_size: usize,
     ) -> Result<Vec<Vec<String>>, Box<dyn Error>> {
-        let num_blocks = (file_size + (DEFAULT_BLOCK_SIZE - 1)) / DEFAULT_BLOCK_SIZE;
+        let num_blocks = (file_size + (self.block_size - 1)) / self.block_size;
         let mut addrs = Vec::<Vec<String>>::with_capacity(num_blocks);
 
         for i in 0..num_blocks {
@@ -109,7 +109,7 @@ impl NameNodeRecords {
         file_path: &str,
         file_size: usize,
     ) -> Result<Vec<Vec<String>>, Box<dyn Error>> {
-        let num_blocks = (file_size + (DEFAULT_BLOCK_SIZE - 1)) / DEFAULT_BLOCK_SIZE;
+        let num_blocks = (file_size + (self.block_size - 1)) / self.block_size;
         let mut addrs = Vec::<Vec<String>>::with_capacity(num_blocks);
 
         for i in 0..num_blocks {
@@ -135,7 +135,7 @@ impl NameNodeRecords {
         file_path: &str,
         file_size: usize,
     ) -> Result<Vec<Vec<String>>, Box<dyn Error>> {
-        let num_blocks = (file_size + (DEFAULT_BLOCK_SIZE - 1)) / DEFAULT_BLOCK_SIZE;
+        let num_blocks = (file_size + (self.block_size - 1)) / self.block_size;
         let mut addrs = Vec::<Vec<String>>::with_capacity(num_blocks);
 
         for i in 0..num_blocks {
@@ -193,10 +193,9 @@ impl NameNodeRecords {
         // update heartbeat time record
         heartbeats.insert(address.to_string(), SystemTime::now());
 
-        println!("Current datanode heartbeats:");
-        for (addr, time) in heartbeats.iter() {
-            println!("Datanode {}: {:?}", addr, time);
-        }
+        // for (addr, time) in heartbeats.iter() {
+        //     println!("Datanode {}: {:?}", addr, time);
+        // }
     }
 }
 
@@ -206,7 +205,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_datanode() {
-        let records = NameNodeRecords::new();
+        let records = NameNodeRecords::new(4096);
         let datanode = "127.0.0.1:5000";
 
         records.add_datanode(&datanode);
@@ -223,7 +222,7 @@ mod tests {
     // testing with one datanode in the system
     #[tokio::test]
     async fn test_add_read_remove_file_1() {
-        let records = NameNodeRecords::new();
+        let records = NameNodeRecords::new(4096);
         let datanode = "127.0.0.1:5000";
         records.add_datanode(&datanode);
 
@@ -258,7 +257,7 @@ mod tests {
     // testing with multiple datanodes in the system
     #[tokio::test]
     async fn test_add_read_remove_file_2() {
-        let records = NameNodeRecords::new();
+        let records = NameNodeRecords::new(4096);
         let datanode1 = "127.0.0.1:5000";
         let datanode2 = "127.0.0.1:5001";
         let datanode3 = "127.0.0.1:5002";

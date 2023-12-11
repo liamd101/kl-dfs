@@ -84,8 +84,7 @@ impl DataNodeServer {
             let request = tonic::Request::new(Heartbeat {
                 address: self.datanode_addr.to_string(),
             });
-            let response = heartbeat_client.send_heartbeat(request).await?;
-            println!("Received heartbeat response: {:?}", response);
+            let _ = heartbeat_client.send_heartbeat(request).await?;
         }
     }
 }
