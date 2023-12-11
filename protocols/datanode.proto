@@ -6,13 +6,13 @@ import "client.proto";
 package network_comms;
 
 service DataNodeProtocols {
-    rpc CreateFile(CreateBlockRequest) returns (CreateBlockResponse);
-    rpc UpdateFile(UpdateBlockRequest) returns (UpdateBlockResponse);
-    rpc DeleteFile(DeleteBlockRequest) returns (DeleteBlockResponse);
+    rpc CreateFile(CreateBlockRequest) returns (EmptyResponse);
+    rpc UpdateFile(UpdateBlockRequest) returns (EmptyResponse);
+    rpc DeleteFile(DeleteBlockRequest) returns (EmptyResponse);
     rpc ReadFile(FileRequest) returns (ReadBlockResponse);
 }
 
-message CreateBlockRequest {
+message EditBlockRequest {
     string file_name = 1;
     BlockInfo block_info = 2;
 }
@@ -24,18 +24,6 @@ message UpdateBlockRequest {
 
 message DeleteBlockRequest {
     string block_name = 1;
-}
-
-message CreateBlockResponse {
-    bool success = 1;
-}
-
-message UpdateBlockResponse {
-    bool success = 1;
-}
-
-message DeleteBlockResponse {
-    bool success = 1;
 }
 
 message ReadBlockResponse {

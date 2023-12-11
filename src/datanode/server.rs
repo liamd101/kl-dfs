@@ -7,9 +7,8 @@ use tokio::time::interval;
 
 use crate::proto::data_node_protocols_server::{DataNodeProtocols, DataNodeProtocolsServer};
 use crate::proto::{
-    hearbeat_protocol_client::HearbeatProtocolClient, CreateBlockRequest, CreateBlockResponse,
-    DeleteBlockRequest, DeleteBlockResponse, FileInfo, Heartbeat, ReadBlockResponse,
-    FileRequest, UpdateBlockRequest, UpdateBlockResponse,
+    hearbeat_protocol_client::HearbeatProtocolClient, CreateBlockRequest, DeleteBlockRequest,
+    EmptyResponse, FileInfo, FileRequest, Heartbeat, ReadBlockResponse, UpdateBlockRequest,
 };
 
 use crate::datanode::storage::Storage;
@@ -94,7 +93,7 @@ impl DataNodeProtocols for DataNodeServer {
     async fn create_file(
         &self,
         request: tonic::Request<CreateBlockRequest>,
-    ) -> Result<tonic::Response<CreateBlockResponse>, tonic::Status> {
+    ) -> Result<tonic::Response<EmptyResponse>, tonic::Status> {
         let request = request.into_inner();
         let block_info = request.block_info.ok_or_else(|| {
             tonic::Status::new(tonic::Code::InvalidArgument, "Block_info not found")
@@ -110,14 +109,14 @@ impl DataNodeProtocols for DataNodeServer {
             .map_err(|_| tonic::Status::new(tonic::Code::Internal, "Failed to create file"))?;
         drop(storage);
 
-        let reply = CreateBlockResponse { success: true };
+        let reply = EmptyResponse { success: true };
         Ok(tonic::Response::new(reply))
     }
 
     async fn update_file(
         &self,
         request: tonic::Request<UpdateBlockRequest>,
-    ) -> Result<tonic::Response<UpdateBlockResponse>, tonic::Status> {
+    ) -> Result<tonic::Response<EmptyResponse>, tonic::Status> {
         let request = request.into_inner();
         let block_info = request.block_info.ok_or_else(|| {
             tonic::Status::new(tonic::Code::InvalidArgument, "Block_info not found")
@@ -139,14 +138,14 @@ impl DataNodeProtocols for DataNodeServer {
                 .map_err(|_| tonic::Status::new(tonic::Code::Internal, "Failed to update file"))?;
         }
 
-        let reply = UpdateBlockResponse { success: true };
+        let reply = EmptyResponse { success: true };
         Ok(tonic::Response::new(reply))
     }
 
     async fn delete_file(
         &self,
         request: tonic::Request<DeleteBlockRequest>,
-    ) -> Result<tonic::Response<DeleteBlockResponse>, tonic::Status> {
+    ) -> Result<tonic::Response<EmptyResponse>, tonic::Status> {
         let request = request.into_inner();
         let block_name = request.block_name;
 
@@ -159,7 +158,7 @@ impl DataNodeProtocols for DataNodeServer {
             .expect("Failed to delete file");
         drop(storage);
 
-        let reply = DeleteBlockResponse { success: true };
+        let reply = EmptyResponse { success: true };
         Ok(tonic::Response::new(reply))
     }
 

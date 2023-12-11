@@ -2,7 +2,7 @@ use crate::namenode::records::NameNodeRecords;
 use crate::proto::{
     client_protocols_server::{ClientProtocols, ClientProtocolsServer},
     hearbeat_protocol_server::{HearbeatProtocol, HearbeatProtocolServer},
-    FileInfo, GenericReply, Heartbeat, NodeList, NodeStatus, FileRequest, FileResponse,
+    FileInfo, FileRequest, FileResponse, GenericReply, Heartbeat, NodeList, NodeStatus,
     SystemInfoRequest, SystemInfoResponse,
 };
 

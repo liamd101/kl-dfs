@@ -13,8 +13,7 @@ service ClientProtocols {
 }
 
 // request for node statuses
-message SystemInfoRequest {
-}
+message SystemInfoRequest { }
 
 message FileRequest {
     FileInfo file_info = 1;

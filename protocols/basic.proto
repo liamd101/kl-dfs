@@ -13,6 +13,10 @@ message FileInfo {
     // add more file info
 }
 
+message EmptyResponse {
+    bool success = 1;
+}
+
 message BlockInfo {
     int64 block_size = 1;
     int64 block_id = 2;

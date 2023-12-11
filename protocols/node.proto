@@ -1,6 +1,5 @@
 syntax = "proto3";
 
-import "google/protobuf/timestamp.proto";
 import "basic.proto";
 
 package network_comms;
@@ -11,5 +10,4 @@ service HearbeatProtocol {
 
 message Heartbeat {
     string address = 1;
-    // google.protobuf.Timestamp time = 2;
 }
