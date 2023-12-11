@@ -43,10 +43,7 @@ impl Client {
         client_addr: &str,
     ) -> Result<DataNodeProtocolsClient<Channel>, Box<dyn Error>> {
         let client_addr = format!("http://{}", client_addr);
-        let channel = Channel::from_shared(client_addr)
-            .unwrap()
-            .connect()
-            .await?;
+        let channel = Channel::from_shared(client_addr).unwrap().connect().await?;
 
         Ok(DataNodeProtocolsClient::new(channel))
     }
@@ -140,8 +137,9 @@ impl Client {
     }
 
     async fn handle_read(&mut self, file_path: &str) -> Result<(), Box<dyn Error>> {
+        // how to get the blocks from the file name??
         let file = FileInfo {
-            file_path: file_path.to_string(), // so far just flat file system, no directories; this is name
+            file_path: file_path.to_string(),
             file_size: 4096,
         };
 
@@ -167,7 +165,7 @@ impl Client {
             let block_name = format!("{}_{}", file_path, block_id);
             let file_info = FileInfo {
                 file_path: block_name,
-                file_size: 0,
+                file_size: 0, // not used
             };
             let request = Request::new(ReadFileRequest {
                 client: Some(self.client_info.clone()),

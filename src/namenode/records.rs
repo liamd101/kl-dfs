@@ -20,13 +20,25 @@ pub struct DataNodeInfo {
 
 // basically recordkeeper/bookkeeper
 pub struct NameNodeRecords {
+    /// max block size in bytes
     block_size: usize,
+
+    /// maps datanode id to datanode info
     datanodes: Mutex<HashMap<u64, DataNodeInfo>>, // datanode id : datanode info
-    datanode_ids: Mutex<HashMap<String, u64>>,    // datanode ip string, datanode id
-    block_records: RwLock<BlockRecords>, // maps blocks to block metadata (including which datanodes a block is on)
+
+    /// maps datanode ip address to datanode id
+    /// ???? why is this a thing?????
+    datanode_ids: Mutex<HashMap<String, u64>>,
+
+    /// maps blocks to block metadata (including which datanodes a block is on)
+    block_records: RwLock<BlockRecords>, 
+
     datanode_id_counter: AtomicUsize,
-    // default_block_size: u64,
-    heartbeat_records: Mutex<HashMap<String, SystemTime>>, // map from datanode ip address to time of last message
+    /// map from datanode ip address to time of last message
+    heartbeat_records: Mutex<HashMap<String, SystemTime>>,
+
+    /// map from file path to block ids
+    file_records: Mutex<HashMap<String, usize>>,
 }
 
 impl Default for NameNodeRecords {
@@ -45,8 +57,8 @@ impl NameNodeRecords {
             datanode_ids: Mutex::new(HashMap::new()),
             block_records: RwLock::new(BlockRecords::new()),
             datanode_id_counter: AtomicUsize::new(0),
-            // default_block_size: 4096,
             heartbeat_records: Mutex::new(HashMap::new()),
+            file_records: Mutex::new(HashMap::new()),
         }
     }
 
@@ -81,6 +93,10 @@ impl NameNodeRecords {
             addrs.push(addr);
         }
 
+        let mut file_records = self.file_records.lock().unwrap();
+        file_records.insert(file_path.to_string(), num_blocks);
+        drop(file_records);
+
         Ok(addrs)
     }
 
@@ -107,14 +123,16 @@ impl NameNodeRecords {
     pub async fn remove_file(
         &self,
         file_path: &str,
-        file_size: usize,
     ) -> Result<Vec<Vec<String>>, Box<dyn Error>> {
-        let num_blocks = (file_size + (self.block_size - 1)) / self.block_size;
+        let mut file_records = self.file_records.lock().unwrap();
+        let num_blocks = file_records.remove(file_path).unwrap_or(0usize);
+        drop(file_records);
+
         let mut addrs = Vec::<Vec<String>>::with_capacity(num_blocks);
 
         for i in 0..num_blocks {
             let block_path = format!("{}_{}", file_path, i);
-            let addr = self.remove_block(&block_path).await?;
+            let addr = self.remove_block(&block_path).expect("Block does not exist");
             addrs.push(addr);
         }
 
@@ -122,7 +140,7 @@ impl NameNodeRecords {
     }
 
     // Removes a file block from block_records, amd returns the datanode addresses it lives on
-    async fn remove_block(&self, file_path: &str) -> Result<Vec<String>, &str> {
+    fn remove_block(&self, file_path: &str) -> Result<Vec<String>, &str> {
         let file_id = Self::get_file_id(file_path);
         let mut block_records = self.block_records.write().unwrap();
         block_records

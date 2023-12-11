@@ -191,14 +191,14 @@ impl ClientProtocols for NameNodeService {
 
         let FileInfo {
             file_path,
-            file_size,
+            file_size: _,
         } = delete_request
             .file_info
             .expect("File information not provided");
 
         let addresses = match self
             .records
-            .remove_file(&file_path, file_size as usize)
+            .remove_file(&file_path)
             .await
         {
             Ok(addresses) => addresses,
