@@ -60,5 +60,5 @@ message DeleteFileResponse {
 
 message ReadFileResponse {
     GenericReply response = 1;
-    repeated string datanode_addr = 2;
+    repeated NodeList datanode_addrs = 2;
 }

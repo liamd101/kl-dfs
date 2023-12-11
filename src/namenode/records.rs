@@ -8,7 +8,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::atomic::AtomicUsize;
 use std::time::SystemTime;
 
-const DEFAULT_BLOCK_SIZE: u64 = 4096;
+const DEFAULT_BLOCK_SIZE: usize = 4096;
 
 #[derive(Clone)]
 pub struct DataNodeInfo {
@@ -83,7 +83,7 @@ impl NameNodeRecords {
         file_path: &str,
         file_size: usize,
     ) -> Result<Vec<Vec<String>>, Box<dyn Error>> {
-        let num_blocks = file_size / DEFAULT_BLOCK_SIZE as usize;
+        let num_blocks = (file_size + (DEFAULT_BLOCK_SIZE - 1)) / DEFAULT_BLOCK_SIZE;
         let mut addrs = Vec::<Vec<String>>::with_capacity(num_blocks);
 
         for i in 0..num_blocks {
@@ -105,8 +105,7 @@ impl NameNodeRecords {
             }
         };
 
-        let mut block_records = self.block_records.write()
-            .map_err(|e| e.to_string())?;
+        let mut block_records = self.block_records.write().map_err(|e| e.to_string())?;
         let datanodes = block_records.add_block_to_records(file_id, datanode.addr)?;
         Ok(datanodes)
 
@@ -127,16 +126,31 @@ impl NameNodeRecords {
     pub async fn remove_file(&self, file_path: &str, _owner: i64) -> Result<Vec<String>, &str> {
         let file_id = Self::get_file_id(file_path);
         let mut block_records = self.block_records.write().unwrap();
-        block_records.remove_block_from_records(&file_id).ok_or("Block does not exist")
+        block_records
+            .remove_block_from_records(&file_id)
+            .ok_or("Block does not exist")
+    }
+
+    pub async fn get_file_addresses(
+        &self,
+        file_path: &String,
+        file_size: usize,
+    ) -> Result<Vec<Vec<String>>, Box<dyn Error>> {
+        let num_blocks = (file_size + (DEFAULT_BLOCK_SIZE - 1)) / DEFAULT_BLOCK_SIZE;
+        let mut addrs = Vec::<Vec<String>>::with_capacity(num_blocks);
+
+        for i in 0..num_blocks {
+            let block_path = format!("{}_{}", file_path, i);
+            let addr = self.get_block_addresses(block_path).await?;
+            addrs.push(addr);
+        }
+
+        Ok(addrs)
     }
 
     // returns a vector of datanode addresses that the file lives on
-    pub async fn get_file_addresses(
-        &self,
-        file_path: &str,
-        _owner: i64,
-    ) -> Result<Vec<String>, &str> {
-        let file_id = Self::get_file_id(file_path);
+    async fn get_block_addresses(&self, file_path: String) -> Result<Vec<String>, &str> {
+        let file_id = Self::get_file_id(&file_path);
         let block_records = self.block_records.read().unwrap();
 
         match block_records.get_block_datanodes(&file_id) {
@@ -266,11 +280,15 @@ mod tests {
         let datanode_1 = result_1.unwrap();
 
         // test reading files
-        let read_result = records.get_file_addresses(file_path_0, owner_uid as i64).await;
+        let read_result = records
+            .get_file_addresses(file_path_0, owner_uid as i64)
+            .await;
         assert!(read_result.is_ok());
         assert_eq!(read_result.unwrap(), vec![datanode_0.clone()]);
 
-        let read_result_1 = records.get_file_addresses(file_path_1, owner_uid as i64).await;
+        let read_result_1 = records
+            .get_file_addresses(file_path_1, owner_uid as i64)
+            .await;
         assert!(read_result_1.is_ok());
         assert_eq!(read_result_1.unwrap(), vec![datanode_1.clone()]);
         // println!("{}, {}", datanode_0, datanode_1);

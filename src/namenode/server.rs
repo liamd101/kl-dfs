@@ -141,6 +141,8 @@ impl ClientProtocols for NameNodeService {
             }
         };
 
+        println!("DataNode addresses: {:?}", datanode_addr);
+
         let response = CreateFileResponse {
             datanode_addrs: datanode_addr.into_iter().map(|addr| addr.into()).collect(),
             response: Some(GenericReply {
@@ -161,15 +163,12 @@ impl ClientProtocols for NameNodeService {
 
         let FileInfo {
             file_path,
-            file_size: _,
+            file_size,
         } = update_request
             .file_info
             .expect("File information not provided");
-        let ClientInfo { uid } = update_request
-            .client
-            .expect("Client information not provided");
 
-        match self.records.get_file_addresses(&file_path, uid).await {
+        match self.records.get_file_addresses(&file_path, file_size as usize).await {
             Ok(addresses) => {
                 let upd_response = UpdateFileResponse {
                     response: Some(GenericReply {
@@ -179,7 +178,7 @@ impl ClientProtocols for NameNodeService {
                             file_path
                         ),
                     }),
-                    datanode_addr: addresses,
+                    datanode_addr: addresses.clone().pop().unwrap(),
                 };
                 Ok(Response::new(upd_response))
             }
@@ -235,37 +234,37 @@ impl ClientProtocols for NameNodeService {
         println!("Received ReadFileRequest");
         let read_request = request.into_inner();
 
-        if let Some(FileInfo {
+        let FileInfo {
             file_path,
-            file_size: _,
-        }) = read_request.file_info
+            file_size,
+        } = read_request
+            .file_info
+            .expect("File information not provided");
+        let ClientInfo { uid } = read_request
+            .client
+            .expect("Client information not provided");
+
+        let datanode_addr = match self
+            .records
+            .get_file_addresses(&file_path, file_size as usize)
+            .await
         {
-            if let Some(ClientInfo { uid }) = read_request.client {
-                match self.records.get_file_addresses(&file_path, uid).await {
-                    Ok(addresses) => {
-                        let read_resp = ReadFileResponse {
-                            response: Some(GenericReply {
-                                is_success: true,
-                                message: format!(
-                                    "Read request successfully processed for: {}",
-                                    file_path
-                                ),
-                            }),
-                            datanode_addr: addresses,
-                        };
-                        Ok(Response::new(read_resp))
-                    }
-                    Err(err) => {
-                        println!("{}", err);
-                        Err(tonic::Status::internal("File does not exist"))
-                    }
-                }
-            } else {
-                Err(tonic::Status::internal("Client information not provided"))
+            Ok(addresses) => addresses,
+            Err(err) => {
+                println!("{}", err);
+                return Err(tonic::Status::internal("File does not exist"));
             }
-        } else {
-            Err(tonic::Status::internal("File information not provided"))
-        }
+        };
+
+        let reply = GenericReply {
+            is_success: true,
+            message: format!("Read request successfully processed for: {}", file_path),
+        };
+        let read_resp = ReadFileResponse {
+            response: Some(reply), // why does this have to be an option?
+            datanode_addrs: datanode_addr.into_iter().map(|addr| addr.into()).collect(),
+        };
+        Ok(Response::new(read_resp))
     }
 }
 

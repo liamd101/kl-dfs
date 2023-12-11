@@ -96,12 +96,15 @@ impl Client {
                             };
 
                             let response = response.into_inner();
-                            let datanode_addr = response.datanode_addr;
+                            let block_addrs = response.datanode_addrs;
+
+                            let datanode_addr = &block_addrs[0].nodes[0];
 
                             println!(
                                 "Writing contents of {} to datanode: {}",
                                 file_path, datanode_addr
                             );
+
                             let channel = Channel::from_shared(format!("http://{}", datanode_addr))
                                 .unwrap()
                                 .connect()
@@ -281,7 +284,9 @@ impl Client {
                             };
 
                             let response = response.into_inner();
-                            let datanode_addr = &response.datanode_addr[0];
+                            let block_addrs = response.datanode_addrs;
+
+                            let datanode_addr = &block_addrs[0].nodes[0];
 
                             println!("Reading from datanode: {}", datanode_addr);
                             let channel = Channel::from_shared(format!("http://{}", datanode_addr))
@@ -304,9 +309,11 @@ impl Client {
                                 }
                             };
                             let data = response.into_inner().block_data;
-                            println!("File content: {}", String::from_utf8_lossy(&data));
+                            println!("File content:\n{}", String::from_utf8_lossy(&data));
                         }
                     }
+
+                    "ls" => {}
 
                     _ => {
                         println!("Invalid Command.");
