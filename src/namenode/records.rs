@@ -39,18 +39,19 @@ pub struct NameNodeRecords {
 
     /// map from file path to block ids
     file_records: Mutex<HashMap<String, usize>>,
+    replication_count: u64,
 }
 
 impl Default for NameNodeRecords {
     fn default() -> Self {
-        Self::new(4096)
+        Self::new(3, 4096)
     }
 }
 
 // TODO: heartbeat monitor - sends and checks for heartbeats and keeps datanodes updated with alive statuses
 // how does it handle if we started making a file, but it wasn't actually written??
 impl NameNodeRecords {
-    pub fn new(block_size: usize) -> Self {
+    pub fn new(replication_count: u64, block_size: usize) -> Self {
         Self {
             block_size,
             datanodes: Mutex::new(HashMap::new()),
@@ -59,6 +60,7 @@ impl NameNodeRecords {
             datanode_id_counter: AtomicUsize::new(0),
             heartbeat_records: Mutex::new(HashMap::new()),
             file_records: Mutex::new(HashMap::new()),
+            replication_count,
         }
     }
 
@@ -98,6 +100,29 @@ impl NameNodeRecords {
         drop(file_records);
 
         Ok(addrs)
+    }
+
+    // we calculate this by: block_id % num_datanodes = datanode_id. Increment to get datanodes to replicate to
+    fn calculate_replicas_from_blockid(&self, block_id: u64) -> Option<Vec<DataNodeInfo>> {
+        // first have to get the number of live datanodes by finding length of datanodes: Mutex<HashMap<String, DataNodeInfo>>
+        let datanodes = self.datanodes.lock().unwrap();
+        let num_datanodes = datanodes.len() as u64;
+        if num_datanodes == 0 {
+            return None;
+        }
+
+        let num_replicas = std::cmp::min(self.replication_count, num_datanodes) as usize;
+        let mut return_datanodes: Vec<DataNodeInfo> = Vec::with_capacity(num_replicas);
+
+        let starting_datanode_id: u64 = block_id % num_datanodes;
+        return_datanodes.push(datanodes.get(&starting_datanode_id).cloned().unwrap());
+
+        for i in 1..num_replicas {
+            let datanode_id = (starting_datanode_id + i as u64) % num_datanodes;
+            return_datanodes.push(datanodes.get(&datanode_id).cloned().unwrap());
+        }
+
+        Some(return_datanodes.clone())
     }
 
     // Adds the new file block to block_records
@@ -171,6 +196,41 @@ impl NameNodeRecords {
         Ok(addrs)
     }
 
+    // Adds the new file block to block_records, with replicas
+    pub async fn add_file_replicas(
+        &self,
+        file_path: &str,
+        _owner: i64,
+    ) -> Result<Vec<String>, &str> {
+        let file_id = Self::get_file_id(file_path);
+        let mut block_records = self.block_records.write().unwrap();
+        match block_records.add_block_to_records(file_id) {
+            Ok(()) => {
+                // initialized record for this block in block_records (initialized hashset for this block)
+                match self.calculate_replicas_from_blockid(file_id) {
+                    Some(nodes) => {
+                        let addr_values: Vec<String> =
+                            nodes.iter().map(|node| node.addr.clone()).collect();
+                        for node in nodes {
+                            if block_records
+                                .add_block_replicate(&file_id, node.addr.clone())
+                                .is_err()
+                            {
+                                return Err("Block Not in Records (uninitialized when trying to add replica)");
+                            }
+                        }
+                        Ok(addr_values)
+                    }
+                    None => {
+                        println!("Datanode not found for file id: {}", file_id);
+                        Err("No Datanodes Running")
+                    }
+                }
+            }
+            Err(_err) => Err("Block Already exists"),
+        }
+    }
+
     // Removes a file block from block_records, amd returns the datanode addresses it lives on
     fn remove_block(&self, file_path: &str) -> Result<Vec<String>, &str> {
         let file_id = Self::get_file_id(file_path);
@@ -231,11 +291,7 @@ impl NameNodeRecords {
         datanodes.insert(new_id, info);
     }
 
-    pub async fn record_heartbeat(
-        &self,
-        address: &str,
-        // timestamp:
-    ) {
+    pub async fn record_heartbeat(&self, address: &str) {
         let mut heartbeats = self.heartbeat_records.lock().unwrap();
         if !heartbeats.contains_key(address) {
             println!("New datanode at address: {}", address);
@@ -257,7 +313,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_datanode() {
-        let records = NameNodeRecords::new(4096);
+        let records = NameNodeRecords::new(1, 4096);
         let datanode = "127.0.0.1:5000";
 
         records.add_datanode(&datanode);
@@ -271,10 +327,10 @@ mod tests {
         assert_eq!(datanode_info.addr, datanode);
     }
 
-    // testing with one datanode in the system
+    // testing with one datanode in the system, replication of 1
     #[tokio::test]
     async fn test_add_read_remove_file_1() {
-        let records = NameNodeRecords::new(4096);
+        let records = NameNodeRecords::new(1, 4096);
         let datanode = "127.0.0.1:5000";
         records.add_datanode(&datanode);
 
@@ -306,10 +362,10 @@ mod tests {
         assert!(addresses_after_removal.is_err());
     }
 
-    // testing with multiple datanodes in the system
+    // testing with multiple datanodes in the system, replication of 1
     #[tokio::test]
     async fn test_add_read_remove_file_2() {
-        let records = NameNodeRecords::new(4096);
+        let records = NameNodeRecords::new(1, 4096);
         let datanode1 = "127.0.0.1:5000";
         let datanode2 = "127.0.0.1:5001";
         let datanode3 = "127.0.0.1:5002";
@@ -355,5 +411,40 @@ mod tests {
         assert!(removal_result.is_ok());
         let remove_addr = removal_result.unwrap();
         assert_eq!(remove_addr, vec![datanode_1]);
+    }
+
+    #[tokio::test]
+    async fn test_replication() {
+        let records = NameNodeRecords::new(2);
+        let datanode1 = "127.0.0.1:5000";
+        let datanode2 = "127.0.0.1:5001";
+        let datanode3 = "127.0.0.1:5002";
+        records.add_datanode(&datanode1);
+
+        // testing replication when replication factor > number of datanodes
+        let file_path = "test_file";
+        let owner_uid = 123;
+        let datanode_ips = records.add_file_replicas(file_path, owner_uid).await;
+        assert!(datanode_ips.is_ok());
+        assert_eq!(datanode_ips.unwrap(), vec![datanode1.clone()]);
+
+        // testing replication when replication factor = number of datanodes
+        let file_path_2 = "test_file_2";
+        records.add_datanode(&datanode2);
+        let datanode_ips = records.add_file_replicas(file_path_2, owner_uid).await;
+        assert!(datanode_ips.is_ok());
+        let d_ips = datanode_ips.unwrap();
+        assert_eq!(d_ips.len(), 2);
+        assert!(d_ips.contains(&datanode1.to_string()));
+        assert!(d_ips.contains(&datanode2.to_string()));
+
+        // testing replication when replication factor < number of datanodes
+        let file_path_3 = "test_file_3";
+        records.add_datanode(&datanode3);
+        let datanode_ips = records.add_file_replicas(file_path_3, owner_uid).await;
+        assert!(datanode_ips.is_ok());
+        let d_ips = datanode_ips.unwrap();
+        assert_eq!(d_ips.len(), 2);
+        // println!("{:?}", d_ips);
     }
 }

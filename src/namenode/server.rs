@@ -107,7 +107,6 @@ impl ClientProtocols for NameNodeService {
         };
 
         Ok(Response::new(response))
-        // Ok(Response::new(SystemInfoResponse { namenode: None, nodes: vec![], num_datanodes: 0 }))
     }
 
     async fn create_file(

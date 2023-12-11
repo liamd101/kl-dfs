@@ -126,7 +126,9 @@ impl Client {
                             }
                         }
                     }
-
+                    "exit" => {
+                        break;
+                    }
                     _ => {
                         println!("Invalid Command.");
                         continue;
