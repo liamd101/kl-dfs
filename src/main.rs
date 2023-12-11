@@ -31,8 +31,6 @@ enum Command {
 async fn main() {
     let args = Args::parse();
     let namenode_port = 3000;
-    let client_port = 3030;
-    // let datanode_port = 7000;
 
     match args.command {
         Command::Datanode { port } => {
@@ -46,7 +44,7 @@ async fn main() {
         }
 
         Command::Client {} => {
-            let client = Client::new(1, namenode_port, client_port);
+            let mut client = Client::new(1, namenode_port).await.expect("Client failed");
             match client.run_client().await {
                 Ok(_) => println!("Client ran successfully"),
                 Err(err) => println!("Client Error: {}", err),
