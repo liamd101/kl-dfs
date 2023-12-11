@@ -1,14 +1,14 @@
 use crate::namenode::block_records::BlockRecords;
 use std::collections::HashMap;
-use std::sync::{atomic, Mutex, RwLock};
 // for atomic counter for id generation
 use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
-use rand::{thread_rng, SeedableRng};
+use rand::SeedableRng;
 use std::collections::hash_map::DefaultHasher;
 use std::error::Error;
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::AtomicUsize;
+use std::sync::{atomic, Mutex, RwLock};
 use std::time::SystemTime;
 
 const DEFAULT_BLOCK_SIZE: usize = 4096;

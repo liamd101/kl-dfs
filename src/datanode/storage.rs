@@ -1,5 +1,3 @@
-use tokio::io::AsyncWriteExt;
-
 use crate::block::Block;
 use crate::proto::BlockInfo;
 use std::error::Error;
