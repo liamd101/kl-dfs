@@ -22,6 +22,6 @@ impl Block {
             &block_info.block_data
         };
 
-        self.data.extend_from_slice(data_to_write);
+        self.data = data_to_write.to_vec();
     }
 }

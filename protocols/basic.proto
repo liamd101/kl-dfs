@@ -42,3 +42,7 @@ message NodeStatus {
     string node_address = 1;
     bool is_online = 2;
 }
+
+message NodeList {
+    repeated string nodes = 1;
+}

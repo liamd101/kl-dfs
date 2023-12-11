@@ -31,9 +31,8 @@ enum Command {
 async fn main() {
     let args = Args::parse();
     let namenode_port = 3000;
-    let client_port = 3030;
-    // let datanode_port = 7000;
     let replication_factor = 3;
+    let block_size = 4096;
 
     match args.command {
         Command::Datanode { port } => {
@@ -42,12 +41,12 @@ async fn main() {
         }
 
         Command::Namenode {} => {
-            let nameserver = NameNodeServer::new(namenode_port, replication_factor);
+            let nameserver = NameNodeServer::new(namenode_port, replication_factor, block_size);
             let _ = nameserver.run_nameserver().await;
         }
 
         Command::Client {} => {
-            let client = Client::new(1, namenode_port, client_port);
+            let mut client = Client::new(1, namenode_port, block_size).await.expect("Client failed");
             match client.run_client().await {
                 Ok(_) => println!("Client ran successfully"),
                 Err(err) => println!("Client Error: {}", err),
