@@ -69,7 +69,6 @@ impl Client {
                 match command {
                     "system_checkup" => {
                         let request = tonic::Request::new(SystemInfoRequest {
-                            client: Some(self.client_info.clone()),
                         });
                         let response = self.namenode_client.get_system_status(request).await?;
                         println!("Response: {:?}", response);
@@ -144,7 +143,6 @@ impl Client {
         };
 
         let request = Request::new(ReadFileRequest {
-            client: Some(self.client_info.clone()),
             file_info: Some(file.clone()),
         });
 
@@ -170,7 +168,6 @@ impl Client {
                 file_size: 0, // not used
             };
             let request = Request::new(ReadFileRequest {
-                client: Some(self.client_info.clone()),
                 file_info: Some(file_info),
             });
 
@@ -198,7 +195,6 @@ impl Client {
             file_size: 4096,
         };
         let request = Request::new(DeleteFileRequest {
-            client: Some(self.client_info.clone()),
             file_info: Some(file.clone()),
         });
         let response = match self.namenode_client.delete_file(request).await {
@@ -215,7 +211,6 @@ impl Client {
 
             let block_name = format!("{}_{}", file_path, block_id);
             let request = Request::new(DeleteBlockRequest {
-                client_info: Some(self.client_info.clone()),
                 block_name,
             });
             let response = match datanode_client.delete_file(request).await {
@@ -253,7 +248,6 @@ impl Client {
             file_size,
         };
         let request = Request::new(UpdateFileRequest {
-            client: Some(self.client_info.clone()),
             file_info: Some(file),
         });
         let response = match self.namenode_client.update_file(request).await {
@@ -298,7 +292,6 @@ impl Client {
             let block_name = format!("{}_{}", file_path, block_id);
             let request = Request::new(UpdateBlockRequest {
                 file_name: block_name,
-                client_info: Some(self.client_info.clone()),
                 block_info: Some(block_info.clone()),
             });
 
@@ -326,7 +319,6 @@ impl Client {
             file_size,
         };
         let request = Request::new(CreateFileRequest {
-            client: Some(self.client_info.clone()),
             file_info: Some(file.clone()),
         });
         let response = match self.namenode_client.create_file(request).await {
@@ -362,7 +354,6 @@ impl Client {
             let block_name = format!("{}_{}", file_path, block_id);
             let request = Request::new(CreateBlockRequest {
                 file_name: block_name,
-                client_info: Some(self.client_info.clone()),
                 block_info: Some(block_info.clone()),
             });
 
