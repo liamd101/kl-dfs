@@ -83,7 +83,6 @@ async fn main() {
 
             let nameserver = NameNodeServer::new(3000, replication_factor, block_size);
             let _ = nameserver.run_nameserver().await;
-
         }
     }
 }

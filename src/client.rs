@@ -182,6 +182,11 @@ impl Client {
 
         let mut buffer = Vec::<u8>::with_capacity(self.block_size);
 
+        if block_addrs.is_empty() {
+            println!("File {} does not exist", file_path);
+            return Ok(());
+        }
+
         println!("Reading file: {}", file_path);
         for (block_id, blocks) in block_addrs.into_iter().enumerate() {
             let datanode_addr = &blocks.nodes[0];
@@ -206,7 +211,7 @@ impl Client {
             buffer.extend_from_slice(&block_data);
             if buffer.len() >= self.block_size {
                 print!("{}", String::from_utf8_lossy(&buffer)); // i think there's a better way
-                                                                  // to do this
+                                                                // to do this
                 buffer.clear();
             }
         }
