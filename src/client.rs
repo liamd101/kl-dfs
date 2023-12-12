@@ -1,13 +1,13 @@
 use std::error::Error;
+use std::fmt;
 use std::fs::File;
 use std::io::Read;
 use std::net::SocketAddr;
-use std::fmt;
 
 use crate::proto::{
     client_protocols_client::ClientProtocolsClient,
     data_node_protocols_client::DataNodeProtocolsClient, BlockInfo, DeleteBlockRequest,
-    EditBlockRequest, FileInfo, FileRequest, SystemInfoRequest, NodeStatus,
+    EditBlockRequest, FileInfo, FileRequest, NodeStatus, SystemInfoRequest,
 };
 
 use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt};
@@ -94,8 +94,10 @@ impl Client {
                         for node in datanode_statuses {
                             println!("Datanode\t{}", node);
                         }
-                        println!("\n{}Summary{}: {} online, {} offline\n", ANSI_BOLD, ANSI_RESET, num_online, num_offline);
-
+                        println!(
+                            "\n{}Summary{}: {} online, {} offline\n",
+                            ANSI_BOLD, ANSI_RESET, num_online, num_offline
+                        );
                     }
 
                     "create" => {
