@@ -205,12 +205,12 @@ impl Client {
             let block_data = response.into_inner().block_data;
             buffer.extend_from_slice(&block_data);
             if buffer.len() >= self.block_size {
-                println!("{}", String::from_utf8_lossy(&buffer)); // i think there's a better way
+                print!("{}", String::from_utf8_lossy(&buffer)); // i think there's a better way
                                                                   // to do this
                 buffer.clear();
             }
         }
-        println!("{}", String::from_utf8_lossy(&buffer));
+        print!("{}", String::from_utf8_lossy(&buffer));
 
         Ok(())
     }

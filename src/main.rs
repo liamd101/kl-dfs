@@ -32,7 +32,7 @@ async fn main() {
     let args = Args::parse();
     let namenode_port = 3000;
     let replication_factor = 3;
-    let block_size = 4096;
+    let block_size = 4;
 
     match args.command {
         Command::Datanode { port } => {
