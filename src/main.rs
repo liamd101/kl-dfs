@@ -24,7 +24,7 @@ enum Command {
     Datanode { port: u16 },
     Namenode {},
     Client {},
-    HeartbeatTest { port: u16 },
+    Demo {},
 }
 
 #[tokio::main]
@@ -55,9 +55,35 @@ async fn main() {
             }
         }
 
-        Command::HeartbeatTest { port } => {
-            let dataserver = DataNodeServer::new(port, namenode_port);
-            let _ = dataserver.run_dataserver().await;
+        Command::Demo {} => {
+            tokio::spawn(async move {
+                let dataserver = DataNodeServer::new(8080, 3000);
+                let _ = dataserver.run_dataserver().await;
+            });
+
+            tokio::spawn(async move {
+                let dataserver = DataNodeServer::new(8081, 3000);
+                let _ = dataserver.run_dataserver().await;
+            });
+
+            tokio::spawn(async move {
+                let dataserver = DataNodeServer::new(8082, 3000);
+                let _ = dataserver.run_dataserver().await;
+            });
+
+            tokio::spawn(async move {
+                let dataserver = DataNodeServer::new(8082, 3000);
+                let _ = dataserver.run_dataserver().await;
+            });
+
+            tokio::spawn(async move {
+                let dataserver = DataNodeServer::new(8083, 3000);
+                let _ = dataserver.run_dataserver().await;
+            });
+
+            let nameserver = NameNodeServer::new(3000, replication_factor, block_size);
+            let _ = nameserver.run_nameserver().await;
+
         }
     }
 }
