@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::fmt;
 use std::fs::File;
 use std::io::Read;
 use std::net::SocketAddr;
@@ -6,12 +7,22 @@ use std::net::SocketAddr;
 use crate::proto::{
     client_protocols_client::ClientProtocolsClient,
     data_node_protocols_client::DataNodeProtocolsClient, BlockInfo, DeleteBlockRequest,
-    EditBlockRequest, FileInfo, FileRequest, SystemInfoRequest,
+    EditBlockRequest, FileInfo, FileRequest, NodeStatus, SystemInfoRequest,
 };
 
 use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt};
 use tonic::{transport::Channel, Request};
 
+impl fmt::Display for NodeStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}\t\t{}",
+            self.node_address,
+            if self.is_online { "Online" } else { "Offline" }
+        )
+    }
+}
 pub struct Client {
     namenode_client: ClientProtocolsClient<Channel>,
     block_size: usize,
@@ -49,6 +60,9 @@ impl Client {
         let stdin = io::stdin();
         let mut reader = io::BufReader::new(stdin);
 
+        const ANSI_BOLD: &str = "\x1b[1m";
+        const ANSI_RESET: &str = "\x1b[0m";
+
         // shell implementation
         loop {
             stdout.write_all(b"> ").await?;
@@ -58,9 +72,6 @@ impl Client {
             reader.read_line(&mut input).await?;
 
             let input = input.trim().to_lowercase();
-            if input == "exit" {
-                break;
-            }
 
             let mut iter = input.split_whitespace();
             if let Some(command) = iter.next() {
@@ -68,7 +79,25 @@ impl Client {
                     "system_checkup" => {
                         let request = tonic::Request::new(SystemInfoRequest {});
                         let response = self.namenode_client.get_system_status(request).await?;
-                        println!("Response: {:?}", response);
+                        let response = response.into_inner();
+                        let namenode_status = response.namenode.unwrap_or_default();
+                        let datanode_statuses = response.nodes;
+
+                        let num_online = datanode_statuses
+                            .iter()
+                            .filter(|node| node.is_online)
+                            .count();
+                        let num_offline = datanode_statuses.len() - num_online;
+
+                        println!("{}Node Type\tIP Address\t\tStatus{}", ANSI_BOLD, ANSI_RESET);
+                        println!("Namenode\t{}", namenode_status);
+                        for node in datanode_statuses {
+                            println!("Datanode\t{}", node);
+                        }
+                        println!(
+                            "\n{}Summary{}: {} online, {} offline\n",
+                            ANSI_BOLD, ANSI_RESET, num_online, num_offline
+                        );
                     }
 
                     "create" => {
