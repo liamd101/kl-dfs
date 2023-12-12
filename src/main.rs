@@ -72,12 +72,12 @@ async fn main() {
             });
 
             tokio::spawn(async move {
-                let dataserver = DataNodeServer::new(8082, 3000);
+                let dataserver = DataNodeServer::new(8083, 3000);
                 let _ = dataserver.run_dataserver().await;
             });
 
             tokio::spawn(async move {
-                let dataserver = DataNodeServer::new(8083, 3000);
+                let dataserver = DataNodeServer::new(8084, 3000);
                 let _ = dataserver.run_dataserver().await;
             });
 
