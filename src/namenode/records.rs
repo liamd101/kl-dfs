@@ -13,7 +13,6 @@ use std::time::SystemTime;
 
 #[derive(Clone)]
 pub struct DataNodeInfo {
-    _id: u64,
     pub addr: String,
     pub alive: bool,
 }
@@ -71,7 +70,6 @@ impl NameNodeRecords {
 
     /// returns hash(file_name || uid)
     fn get_file_id(file_name: &str) -> u64 {
-        // get file_id from hashing
         let mut hasher = DefaultHasher::new();
         file_name.hash(&mut hasher);
         hasher.finish()
@@ -106,7 +104,7 @@ impl NameNodeRecords {
         let file_id = Self::get_file_id(&block_path);
         let datanodes = self.get_datanode_statuses().await;
 
-        // randomly select 3 datanodes to store the block on
+        // randomly select datanodes to store the block on
         let mut rng = StdRng::seed_from_u64(file_id);
         let mut shuffled_datanodes = datanodes.clone();
         shuffled_datanodes.shuffle(&mut rng);
@@ -121,6 +119,7 @@ impl NameNodeRecords {
         Ok(datanodes)
     }
 
+    /// Updates a file in the system and returns the datanode addresses to edit
     pub async fn update_file(
         &self,
         file_path: &str,
@@ -155,6 +154,7 @@ impl NameNodeRecords {
         Ok(addrs)
     }
 
+    /// Removes a file from the system and returns the datanode addresses it lived on
     pub async fn remove_file(&self, file_path: &str) -> Result<Vec<Vec<String>>, Box<dyn Error>> {
         let mut file_records = self.file_records.lock().unwrap();
         let num_blocks = file_records.remove(file_path).unwrap_or(0usize);
@@ -172,7 +172,7 @@ impl NameNodeRecords {
         Ok(addrs)
     }
 
-    // Removes a file block from block_records, amd returns the datanode addresses it lives on
+    // Removes a block from block_records, amd returns the datanode addresses it lived on
     fn remove_block(&self, file_path: &str) -> Result<Vec<String>, &str> {
         let file_id = Self::get_file_id(file_path);
         let mut block_records = self.block_records.write().unwrap();
@@ -225,7 +225,6 @@ impl NameNodeRecords {
             .datanode_id_counter
             .fetch_add(1, atomic::Ordering::SeqCst) as u64;
         let info = DataNodeInfo {
-            _id: new_id,
             addr: addr.to_string(),
             alive: true,
         };
