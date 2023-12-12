@@ -93,7 +93,6 @@ impl DataNodeServer {
 
 #[tonic::async_trait]
 impl DataNodeProtocols for DataNodeServer {
-
     /// Creates a file in the datanode and returns a success message
     async fn create_file(
         &self,
