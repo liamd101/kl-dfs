@@ -49,7 +49,6 @@ impl Default for NameNodeRecords {
     }
 }
 
-// TODO: heartbeat monitor - sends and checks for heartbeats and keeps datanodes updated with alive statuses
 impl NameNodeRecords {
     pub fn new(replication_count: usize, block_size: usize) -> Self {
         Self {
@@ -70,7 +69,7 @@ impl NameNodeRecords {
         statuses
     }
 
-    // returns hash(file_name || uid)
+    /// returns hash(file_name || uid)
     fn get_file_id(file_name: &str) -> u64 {
         // get file_id from hashing
         let mut hasher = DefaultHasher::new();
@@ -80,7 +79,7 @@ impl NameNodeRecords {
 
     /// Adds a file to the system, and returns the addresses of the datanodes its chunks live on
     /// The index is the index of the block in the file
-    /// i.e. the String at index 0 is the address of the datanode that the first block lives on
+    /// i.e. the String at index 0 is a list of addresses that the first block lives on
     pub async fn add_file(
         &self,
         file_path: &str,
@@ -102,7 +101,7 @@ impl NameNodeRecords {
         Ok(addrs)
     }
 
-    // Adds the new file block to block_records
+    /// Adds a new block to block_records and returns a list of datanode addresses to store the block on
     async fn add_block(&self, block_path: String) -> Result<Vec<String>, Box<dyn Error>> {
         let file_id = Self::get_file_id(&block_path);
         let datanodes = self.get_datanode_statuses().await;
@@ -182,12 +181,13 @@ impl NameNodeRecords {
             .ok_or("Block does not exist")
     }
 
+    /// Returns a 2d vector of datanode addresses that each block of the file lives on
     pub async fn get_file_addresses(
         &self,
         file_path: &str,
     ) -> Result<Vec<Vec<String>>, Box<dyn Error>> {
         let file_records = self.file_records.lock().unwrap();
-        let num_blocks = file_records.get(file_path).map(|&v| v).unwrap_or(0usize);
+        let num_blocks = file_records.get(file_path).copied().unwrap_or(0usize);
         let mut addrs = Vec::<Vec<String>>::with_capacity(num_blocks);
 
         for i in 0..num_blocks {
@@ -201,7 +201,7 @@ impl NameNodeRecords {
         Ok(addrs)
     }
 
-    // returns a vector of datanode addresses that the file lives on
+    /// Returns a vector of datanode addresses that the file lives on
     fn get_block_addresses(&self, file_path: String) -> Result<Vec<String>, &str> {
         let file_id = Self::get_file_id(&file_path);
         let block_records = self.block_records.read().unwrap();
@@ -212,7 +212,7 @@ impl NameNodeRecords {
         }
     }
 
-    // adds datanode to records
+    /// Adds datanode to records
     fn add_datanode(&self, addr: &str) {
         let mut datanodes = self.datanodes.lock().unwrap();
         let mut datanode_ids = self.datanode_ids.lock().unwrap();

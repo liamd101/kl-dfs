@@ -13,11 +13,6 @@ use tonic::transport::Server;
 use tonic::Response;
 
 pub struct NameNodeServer {
-    // datanodes: Vec<DataNode>,
-    // num_datanodes: i64,
-    // blocks: HashMap<u64, Vec<DataNode>>,
-    // metadata: HashMap<u64, FileMetadata>, // from file id : file metadata
-    // addr: String,
     address: SocketAddr,
     records: Arc<NameNodeRecords>,
 }
@@ -72,10 +67,8 @@ impl From<Vec<String>> for NodeList {
 impl ClientProtocols for NameNodeService {
     async fn get_system_status(
         &self,
-        request: tonic::Request<SystemInfoRequest>,
+        _request: tonic::Request<SystemInfoRequest>,
     ) -> Result<tonic::Response<SystemInfoResponse>, tonic::Status> {
-        let system_info_request = request.into_inner();
-
         let namenode_status = NodeStatus {
             node_address: self.address.clone(),
             is_online: true,

@@ -3,7 +3,6 @@ use crate::proto::BlockInfo;
 use std::error::Error;
 
 /// Block storage for a datanode
-#[derive(Clone)]
 pub struct Storage {
     /// Blocks stored in datanode
     pub blocks: Vec<Block>,
@@ -20,6 +19,7 @@ impl Storage {
         Storage { blocks: vec![] }
     }
 
+    /// Takes a block name and returns the bytes stored in that block
     pub async fn read(&self, name: &str) -> Result<Vec<u8>, Box<dyn Error>> {
         if !self.exists(name) {
             return Err("Block does not exist".into());
@@ -29,6 +29,7 @@ impl Storage {
         Ok(buffer)
     }
 
+    /// Takes a block name and the bytes to be written and stores the block
     pub async fn create(
         &mut self,
         name: &str,
@@ -51,6 +52,7 @@ impl Storage {
         Ok(())
     }
 
+    /// Takes a block name and the bytes to be written and updates or creates the block
     pub async fn update(
         &mut self,
         name: &str,
@@ -65,19 +67,23 @@ impl Storage {
         Ok(())
     }
 
+    /// Takes a block name and deletes the block
     pub async fn delete(&mut self, name: &str) -> Result<(), Box<dyn Error>> {
         self.blocks.retain(|b| b.name != name);
         Ok(())
     }
 
+    /// Returns a mutable references to blocks with a given name
     fn get_block_mut(&mut self, name: &str) -> Option<&mut Block> {
         self.blocks.iter_mut().find(|b| b.name == name)
     }
 
+    /// Returns a references to blocks with a given name
     fn get_block(&self, name: &str) -> Option<&Block> {
         self.blocks.iter().find(|b| b.name == name)
     }
 
+    /// Returns true if a block with a given name exists
     fn exists(&self, name: &str) -> bool {
         self.blocks.iter().any(|b| b.name == name)
     }

@@ -1,16 +1,15 @@
 use std::error::Error;
 use std::fs::File;
 use std::io::Read;
-
 use std::net::SocketAddr;
-use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt};
 
 use crate::proto::{
     client_protocols_client::ClientProtocolsClient,
-    data_node_protocols_client::DataNodeProtocolsClient, BlockInfo, CreateBlockRequest,
-    DeleteBlockRequest, FileInfo, FileRequest, SystemInfoRequest, UpdateBlockRequest,
+    data_node_protocols_client::DataNodeProtocolsClient, BlockInfo, DeleteBlockRequest,
+    EditBlockRequest, FileInfo, FileRequest, SystemInfoRequest,
 };
 
+use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt};
 use tonic::{transport::Channel, Request};
 
 pub struct Client {
@@ -152,7 +151,7 @@ impl Client {
         let response = response.into_inner();
         let block_addrs = response.datanode_addrs;
 
-        let mut buffer = Vec::<u8>::with_capacity(4096);
+        let mut buffer = Vec::<u8>::with_capacity(self.block_size);
 
         println!("Reading file: {}", file_path);
         for (block_id, blocks) in block_addrs.into_iter().enumerate() {
@@ -163,7 +162,7 @@ impl Client {
             let block_name = format!("{}_{}", file_path, block_id);
             let file_info = FileInfo {
                 file_path: block_name,
-                file_size: 0, // not used
+                file_size: 0,
             };
             let request = Request::new(FileRequest {
                 file_info: Some(file_info),
@@ -176,7 +175,7 @@ impl Client {
 
             let block_data = response.into_inner().block_data;
             buffer.extend_from_slice(&block_data);
-            if buffer.len() >= 4096 {
+            if buffer.len() >= self.block_size {
                 println!("{}", String::from_utf8_lossy(&buffer)); // i think there's a better way
                                                                   // to do this
                 buffer.clear();
@@ -189,7 +188,7 @@ impl Client {
 
     async fn handle_delete(&mut self, file_path: &str) -> Result<(), Box<dyn Error>> {
         let file = FileInfo {
-            file_path: file_path.to_string(), // so far just flat file system, no directories; this is name
+            file_path: file_path.to_string(),
             file_size: 4096,
         };
         let request = Request::new(FileRequest {
@@ -254,7 +253,7 @@ impl Client {
         let response = response.into_inner();
         let block_addrs = &response.datanode_addrs;
 
-        for (block_id, blocks) in block_addrs.into_iter().enumerate() {
+        for (block_id, blocks) in block_addrs.iter().enumerate() {
             println!("Updating block {} of {}", block_id, file_path);
             let datanode_addr = &blocks.nodes[0];
 
@@ -283,7 +282,7 @@ impl Client {
             };
 
             let block_name = format!("{}_{}", file_path, block_id);
-            let request = Request::new(UpdateBlockRequest {
+            let request = Request::new(EditBlockRequest {
                 file_name: block_name,
                 block_info: Some(block_info.clone()),
             });
@@ -345,7 +344,7 @@ impl Client {
             };
 
             let block_name = format!("{}_{}", file_path, block_id);
-            let request = Request::new(CreateBlockRequest {
+            let request = Request::new(EditBlockRequest {
                 file_name: block_name,
                 block_info: Some(block_info.clone()),
             });

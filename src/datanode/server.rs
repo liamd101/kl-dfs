@@ -7,8 +7,8 @@ use tokio::time::interval;
 
 use crate::proto::data_node_protocols_server::{DataNodeProtocols, DataNodeProtocolsServer};
 use crate::proto::{
-    hearbeat_protocol_client::HearbeatProtocolClient, CreateBlockRequest, DeleteBlockRequest,
-    EmptyResponse, FileInfo, FileRequest, Heartbeat, ReadBlockResponse, UpdateBlockRequest,
+    hearbeat_protocol_client::HearbeatProtocolClient, DeleteBlockRequest, EditBlockRequest,
+    EmptyResponse, FileInfo, FileRequest, Heartbeat, ReadBlockResponse,
 };
 
 use crate::datanode::storage::Storage;
@@ -39,6 +39,7 @@ impl DataNodeServer {
         }
     }
 
+    /// Runs the datanode server on the specified port
     pub async fn run_dataserver(&self) -> Result<(), Box<dyn Error>> {
         let heartbeat_status = self.send_heartbeat_loop();
         let service_status = self.run_service();
@@ -46,14 +47,14 @@ impl DataNodeServer {
         tokio::select! {
             result = heartbeat_status => {
                 match result {
-                    Ok(_) => {}, // If Ok, do nothing
-                    Err(e) => return Err(e), // If Err, return the error
+                    Ok(_) => {},
+                    Err(e) => return Err(e),
                 }
             }
             result = service_status => {
                 match result {
-                    Ok(_) => {}, // If Ok, do nothing
-                    Err(e) => return Err(e), // If Err, return the error
+                    Ok(_) => {},
+                    Err(e) => return Err(e),
                 }
             }
         }
@@ -61,6 +62,7 @@ impl DataNodeServer {
         Ok(())
     }
 
+    /// Runs the datanode service on the specified port
     pub async fn run_service(&self) -> Result<(), Box<dyn Error>> {
         Server::builder()
             .add_service(DataNodeProtocolsServer::new(self.clone()))
@@ -69,6 +71,7 @@ impl DataNodeServer {
         Ok(())
     }
 
+    /// Sends the heartbeat to the namenode every 5 seconds
     pub async fn send_heartbeat_loop(&self) -> Result<(), Box<dyn Error>> {
         let mut interval = interval(Duration::from_secs(5));
         let channel = Channel::from_shared(format!("http://{}", self.namenode_addr))
@@ -90,9 +93,11 @@ impl DataNodeServer {
 
 #[tonic::async_trait]
 impl DataNodeProtocols for DataNodeServer {
+
+    /// Creates a file in the datanode and returns a success message
     async fn create_file(
         &self,
-        request: tonic::Request<CreateBlockRequest>,
+        request: tonic::Request<EditBlockRequest>,
     ) -> Result<tonic::Response<EmptyResponse>, tonic::Status> {
         let request = request.into_inner();
         let block_info = request.block_info.ok_or_else(|| {
@@ -113,9 +118,10 @@ impl DataNodeProtocols for DataNodeServer {
         Ok(tonic::Response::new(reply))
     }
 
+    /// Updates a file in the datanode and returns a success message
     async fn update_file(
         &self,
-        request: tonic::Request<UpdateBlockRequest>,
+        request: tonic::Request<EditBlockRequest>,
     ) -> Result<tonic::Response<EmptyResponse>, tonic::Status> {
         let request = request.into_inner();
         let block_info = request.block_info.ok_or_else(|| {
@@ -142,6 +148,7 @@ impl DataNodeProtocols for DataNodeServer {
         Ok(tonic::Response::new(reply))
     }
 
+    /// Deletes a file in the datanode and returns a success message
     async fn delete_file(
         &self,
         request: tonic::Request<DeleteBlockRequest>,
@@ -162,6 +169,7 @@ impl DataNodeProtocols for DataNodeServer {
         Ok(tonic::Response::new(reply))
     }
 
+    /// Read a file from the datanode and return the file data
     async fn read_file(
         &self,
         request: tonic::Request<FileRequest>,
